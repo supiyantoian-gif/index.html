@@ -69,7 +69,7 @@ function onYouTubeIframeAPIReady() {
   });
 }
 
-// === Jika lagu selesai, lanjut ===
+// === Saat lagu selesai otomatis lanjut ===
 function onPlayerStateChange(e){
   if(e.data === YT.PlayerState.ENDED){
     nextSong();
@@ -88,7 +88,7 @@ function renderPlaylist(list){
   });
 }
 
-// === Playlist Realtime ===
+// === Ambil playlist realtime ===
 db.ref("karaoke/playlist").on("value", snap=>{
   const list = snap.val() || [];
   renderPlaylist(list);
@@ -97,7 +97,7 @@ db.ref("karaoke/playlist").on("value", snap=>{
   }
 });
 
-// === Kontrol dari HP ===
+// === Kontrol dari Remote ===
 db.ref("karaoke/control").on("value", snap=>{
   const c = snap.val();
   if(!c) return;
@@ -148,7 +148,7 @@ function clearPlaylist(){
   currentSong = null;
 }
 
-// === QR Code untuk remote ===
+// === QR Code (otomatis link ke remote.html) ===
 const remoteURL = window.location.origin + "/remote.html";
 new QRCode(document.getElementById("qrcode"), {
   text: remoteURL,
