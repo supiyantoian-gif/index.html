@@ -1,288 +1,162 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>THE LINKS. KTV BATAM - Modern Dark (Thumbnail + UpDown + AutoPlay + QR Link)</title>
+<title>Karaoke Operator - THE LINKS KTV</title>
 <style>
-  *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
-  body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;}
-  header{padding:10px 20px;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:space-between;}
-  #searchBar{display:flex;gap:10px;align-items:center;}
-  input{padding:10px;border:none;border-radius:5px;width:300px;}
-  button{background:#1db954;border:none;color:#fff;padding:10px 15px;border-radius:5px;cursor:pointer;transition:0.2s;}
-  button:hover{background:#1ed760;}
-  #container{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - 180px);}
-  #searchResults,#playlist{overflow-y:auto;padding:15px;background:rgba(255,255,255,0.05);}
-  .song{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);margin-bottom:8px;padding:8px;border-radius:6px;cursor:pointer;transition:0.2s;}
-  .song:hover{background:rgba(255,255,255,0.15);}
-  img.thumb{width:80px;border-radius:4px;}
-  .title{font-weight:bold;font-size:14px;}
-  .channel{font-size:12px;color:#ccc;}
-  #controls{display:flex;gap:10px;justify-content:center;padding:10px;background:rgba(0,0,0,0.3);}
-  #virtualKeyboard{display:none;grid-template-columns:repeat(10,1fr);gap:5px;padding:10px;background:rgba(0,0,0,0.3);position:absolute;bottom:10px;left:50%;transform:translateX(-50%);border-radius:10px;}
-  #virtualKeyboard button{background:#333;border:1px solid #444;color:#FFD700;font-weight:bold;}
-  #navButtons{display:flex;gap:5px;}
-
-  /* === QR SECTION === */
-  #qrPanel{position:fixed;right:10px;bottom:10px;background:rgba(0,0,0,0.6);padding:10px;border-radius:10px;z-index:999;display:none;flex-direction:column;align-items:center;}
-  #qrcode{background:#fff;padding:8px;border-radius:6px;}
-  #qrToggleBtn{position:fixed;right:10px;bottom:10px;background:#FFD700;color:#000;font-weight:bold;border:none;border-radius:50%;width:45px;height:45px;cursor:pointer;z-index:1000;box-shadow:0 0 10px rgba(255,215,0,0.8);}
-  #qrLinkInput{width:250px;margin-bottom:8px;padding:6px;border:none;border-radius:5px;}
-  #closeQR{background:red;color:white;border:none;border-radius:4px;margin-top:6px;padding:3px 6px;cursor:pointer;}
+body{background:#000;color:#fff;font-family:sans-serif;text-align:center;margin:0;padding:0;}
+#player{width:80%;height:60vh;margin:auto;margin-top:30px;border:3px solid #1db954;border-radius:10px;}
+#current{margin-top:20px;font-size:20px;}
+#playlist{max-width:700px;margin:20px auto;text-align:left;}
+.song{background:#111;padding:10px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+#qrPanel{position:fixed;right:20px;bottom:20px;background:rgba(255,255,255,0.1);padding:10px;border-radius:10px;text-align:center;}
+#qrcode{background:#fff;padding:8px;border-radius:8px;display:inline-block;}
+#qrTitle{font-size:14px;margin-bottom:5px;color:#FFD700;}
+button{background:#1db954;border:none;color:#fff;padding:8px 12px;border-radius:5px;cursor:pointer;margin-top:10px;}
+button:hover{background:#1ed760;}
 </style>
 </head>
 <body>
-<header>
-  <div><strong>THE LINKS. KTV BATAM</strong></div>
-  <div id="searchBar">
-    <input type="text" id="searchInput" placeholder="Cari lagu..." />
-    <button id="searchBtn">Cari</button>
-    <div id="navButtons">
-      <button id="upBtn">▲</button>
-      <button id="downBtn">▼</button>
-    </div>
-    <button id="openPlayerBtn">Buka Layar 2</button>
-  </div>
-</header>
+<h2>🎤 THE LINKS KTV - Operator</h2>
+<div id="player"></div>
+<div id="current">Menunggu lagu...</div>
 
-<div id="container">
-  <div id="searchResults"></div>
-  <div id="playlist"></div>
-</div>
+<h3>🎵 Playlist Lagu</h3>
+<div id="playlist"></div>
+<button onclick="clearPlaylist()">🗑️ Kosongkan Playlist</button>
 
-<div id="controls">
-  <button onclick="playSelected()">Play</button>
-  <button onclick="pauseVideo()">Pause</button>
-  <button onclick="nextSong()">Next</button>
-  <button onclick="moveUp()">Up</button>
-  <button onclick="moveDown()">Down</button>
-  <button onclick="clearPlaylist()">Clear</button>
-</div>
-
-<div id="virtualKeyboard"></div>
-
-<!-- === QR FEATURE === -->
-<button id="qrToggleBtn">QR</button>
+<!-- Panel QR Remote -->
 <div id="qrPanel">
-  <input id="qrLinkInput" placeholder="Masukkan link untuk QR..." />
-  <button id="generateQRBtn">Buat QR</button>
+  <div id="qrTitle">📱 Scan untuk buka Remote</div>
   <div id="qrcode"></div>
-  <button id="closeQR">Tutup</button>
 </div>
 
-<!-- QR Library -->
+<!-- Firebase + YouTube + QR -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
-const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
-let playlist = [];
-let currentIndex = 0;
-let playerWindow = null;
-let playerReady = false;
-let selectedSearchIndex = -1;
+// === Firebase Config ===
+const firebaseConfig = {
+  apiKey: "AIzaSyBnW5cUpoHzUpdN0UuVR5q8D7Epzuh46MY",
+  authDomain: "karaoke-remote.firebaseapp.com",
+  projectId: "karaoke-remote",
+  storageBucket: "karaoke-remote.firebasestorage.app",
+  messagingSenderId: "780368521995",
+  appId: "1:780368521995:web:9175227e4529393d8f900e",
+  measurementId: "G-6BFKKTY4CK",
+  databaseURL: "https://karaoke-remote-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-function createVirtualKeyboard(){
-  const vk = document.getElementById("virtualKeyboard");
-  const keys = ['Q','W','E','R','T','Y','U','I','O','P',
-                'A','S','D','F','G','H','J','K','L',
-                'Z','X','C','V','B','N','M','←','⏎','␣'];
-  keys.forEach(k=>{
-    const btn=document.createElement('button');
-    btn.textContent=k;
-    btn.onclick=()=>virtualKeyPress(k);
-    vk.appendChild(btn);
+let player;
+let currentSong = null;
+
+// === YouTube Player ===
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('player', {
+    height: '390',
+    width: '640',
+    videoId: '',
+    playerVars: { 'autoplay': 1, 'controls': 1 },
+    events: {
+      'onReady': () => console.log("Player siap"),
+      'onStateChange': onPlayerStateChange
+    }
   });
 }
 
-function virtualKeyPress(k){
-  const input=document.getElementById('searchInput');
-  if(k==='←') input.value=input.value.slice(0,-1);
-  else if(k==='⏎') doSearch();
-  else if(k==='␣') input.value+=' ';
-  else input.value+=k;
-}
-
-async function doSearch(){
-  const q=document.getElementById('searchInput').value.trim();
-  const resultsEl=document.getElementById('searchResults');
-  if(!q){resultsEl.innerHTML='<i>Masukkan kata kunci...</i>';return;}
-  resultsEl.innerHTML='<i>Mencari...</i>';
-  const searchQuery=q.toLowerCase().includes('karaoke')?q:q+' karaoke';
-  const url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(searchQuery)}&key=${API_KEY}`;
-  try{
-    const resp=await fetch(url);
-    const data=await resp.json();
-    if(!data.items){resultsEl.innerHTML='<i>Gagal mengambil hasil.</i>';return;}
-    resultsEl.innerHTML='';
-    selectedSearchIndex = -1;
-    data.items.forEach((item,i)=>{
-      const div=document.createElement('div');
-      div.className='song';
-      div.onclick=()=>addToPlaylist(item);
-      div.innerHTML=`
-        <img class="thumb" src="${item.snippet.thumbnails.medium.url}">
-        <div><div class="title">${item.snippet.title}</div>
-        <div class="channel">${item.snippet.channelTitle}</div></div>`;
-      resultsEl.appendChild(div);
-    });
-  }catch(e){
-    resultsEl.innerHTML='<i>Gagal konek ke YouTube API</i>';
+// === Jika lagu selesai, lanjut ===
+function onPlayerStateChange(e){
+  if(e.data === YT.PlayerState.ENDED){
+    nextSong();
   }
 }
 
-function highlightSearchResult(){
-  const items=document.querySelectorAll('#searchResults .song');
-  items.forEach((div,i)=>div.style.background=i===selectedSearchIndex?'rgba(29,185,84,0.4)':'rgba(255,255,255,0.05)');
-}
-
-function moveSearchUp(){
-  const items=document.querySelectorAll('#searchResults .song');
-  if(items.length===0) return;
-  selectedSearchIndex = selectedSearchIndex<=0 ? items.length-1 : selectedSearchIndex-1;
-  highlightSearchResult();
-}
-
-function moveSearchDown(){
-  const items=document.querySelectorAll('#searchResults .song');
-  if(items.length===0) return;
-  selectedSearchIndex = selectedSearchIndex>=items.length-1 ? 0 : selectedSearchIndex+1;
-  highlightSearchResult();
-}
-
-function addSelectedSearchToPlaylist(){
-  const items=document.querySelectorAll('#searchResults .song');
-  if(selectedSearchIndex>=0 && selectedSearchIndex<items.length){
-    items[selectedSearchIndex].click();
-  }
-}
-
-function addToPlaylist(item){
-  playlist.push({
-    id:item.id.videoId,
-    title:item.snippet.title,
-    channel:item.snippet.channelTitle,
-    thumb:item.snippet.thumbnails.medium.url
-  });
-  renderPlaylist();
-  if(playlist.length===1){currentIndex=0;playSelected();}
-}
-
-function renderPlaylist(){
-  const el=document.getElementById('playlist');
-  el.innerHTML='';
-  playlist.forEach((song,i)=>{
-    const div=document.createElement('div');
-    div.className='song';
-    div.innerHTML=`
-      <img class="thumb" src="${song.thumb}">
-      <div>
-        <div class="title">${i+1}. ${song.title}</div>
-        <div class="channel">${song.channel}</div>
-      </div>`;
-    div.onclick=()=>{currentIndex=i; playSelected();};
-    el.appendChild(div);
+// === Render playlist ===
+function renderPlaylist(list){
+  const p = document.getElementById("playlist");
+  p.innerHTML = "";
+  list.forEach((s, i)=>{
+    const div = document.createElement("div");
+    div.className = "song";
+    div.innerHTML = `<div>${i+1}. ${s.title}</div><button onclick="removeSong(${i})">❌</button>`;
+    p.appendChild(div);
   });
 }
 
-function moveUp(){
-  if(currentIndex>0){
-    [playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]];
-    currentIndex--;
-    renderPlaylist();
-  }
-}
-
-function moveDown(){
-  if(currentIndex<playlist.length-1){
-    [playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]];
-    currentIndex++;
-    renderPlaylist();
-  }
-}
-
-function openPlayer(){
-  if(!playerWindow || playerWindow.closed){
-    playerReady = false;
-    playerWindow = window.open("", "playerWindow", "width=800,height=600");
-    playerWindow.document.write(`
-      <html><body style="margin:0;background:black;overflow:hidden;">
-      <div id="player"></div>
-      <script>
-      let player;
-      window.addEventListener('message', e=>{
-        if(e.data.type==='play' && player){player.loadVideoById(e.data.id);}
-        if(e.data.type==='pause' && player){player.pauseVideo();}
-      });
-      function onYouTubeIframeAPIReady(){
-        player=new YT.Player('player',{width:'100%',height:'100%',
-          videoId:'',
-          playerVars:{'autoplay':1,'controls':0},
-          events:{'onReady':()=>{window.opener.postMessage('ready','*');}}
-        });
-      }
-      <\/script>
-      <script src="https://www.youtube.com/iframe_api"><\/script>
-      </body></html>
-    `);
-  }
-}
-
-function playSelected(){
-  if(!playlist.length) return;
-  if(!playerWindow || playerWindow.closed) openPlayer();
-  const song=playlist[currentIndex];
-  setTimeout(()=>{playerWindow.postMessage({type:'play',id:song.id},'*');},1000);
-}
-
-function nextSong(){
-  if(currentIndex<playlist.length-1){currentIndex++;playSelected();}
-}
-
-function pauseVideo(){
-  playerWindow?.postMessage({type:'pause'},'*');
-}
-
-function clearPlaylist(){
-  playlist=[];renderPlaylist();
-}
-
-// === Keyboard handler ===
-window.addEventListener('message',e=>{
-  if(e.data==='ready'){
-    const song=playlist[currentIndex];
-    playerWindow.postMessage({type:'play',id:song.id},'*');
+// === Playlist Realtime ===
+db.ref("karaoke/playlist").on("value", snap=>{
+  const list = snap.val() || [];
+  renderPlaylist(list);
+  if(!currentSong && list.length > 0){
+    playSong(list[0]);
   }
 });
 
-document.getElementById('searchBtn').onclick=doSearch;
-document.getElementById('openPlayerBtn').onclick=openPlayer;
-document.getElementById('upBtn').onclick=moveSearchUp;
-document.getElementById('downBtn').onclick=moveSearchDown;
-createVirtualKeyboard();
+// === Kontrol dari HP ===
+db.ref("karaoke/control").on("value", snap=>{
+  const c = snap.val();
+  if(!c) return;
+  if(c.action === "play" && player) player.playVideo();
+  if(c.action === "pause" && player) player.pauseVideo();
+  if(c.action === "next") nextSong();
+});
 
-const searchInput=document.getElementById('searchInput');
-const vk=document.getElementById('virtualKeyboard');
-searchInput.addEventListener('focus',()=>{vk.style.display='grid';});
-document.addEventListener('click',e=>{if(!vk.contains(e.target) && e.target!==searchInput){vk.style.display='none';}});
+// === Play lagu ===
+function playSong(song){
+  if(!song) return;
+  currentSong = song;
+  document.getElementById("current").textContent = "🎵 " + song.title;
+  player.loadVideoById(song.id);
+  db.ref("karaoke/current").set(song);
+}
 
-// === QR code logic ===
-const qrBtn=document.getElementById('qrToggleBtn');
-const qrPanel=document.getElementById('qrPanel');
-const qrInput=document.getElementById('qrLinkInput');
-const qrGenBtn=document.getElementById('generateQRBtn');
-const qrDiv=document.getElementById('qrcode');
-const closeQR=document.getElementById('closeQR');
-let qrObj=null;
+// === Hapus lagu ===
+function removeSong(index){
+  db.ref("karaoke/playlist").once("value").then(snap=>{
+    const list = snap.val() || [];
+    list.splice(index,1);
+    db.ref("karaoke/playlist").set(list);
+  });
+}
 
-qrBtn.addEventListener('click',()=>{qrPanel.style.display='flex';});
-closeQR.addEventListener('click',()=>{qrPanel.style.display='none';});
+// === Lagu berikutnya ===
+function nextSong(){
+  db.ref("karaoke/playlist").once("value").then(snap=>{
+    const list = snap.val() || [];
+    if(list.length > 1){
+      list.shift();
+      db.ref("karaoke/playlist").set(list);
+      playSong(list[0]);
+    } else {
+      db.ref("karaoke/playlist").set([]);
+      document.getElementById("current").textContent = "Menunggu lagu...";
+      currentSong = null;
+    }
+  });
+}
 
-qrGenBtn.addEventListener('click',()=>{
-  const link=qrInput.value.trim();
-  if(!link){alert("Masukkan link terlebih dahulu.");return;}
-  qrDiv.innerHTML='';
-  qrObj=new QRCode(qrDiv,{text:link,width:150,height:150,colorDark:"#000000",colorLight:"#ffffff"});
+// === Kosongkan playlist ===
+function clearPlaylist(){
+  db.ref("karaoke/playlist").set([]);
+  document.getElementById("playlist").innerHTML = "";
+  document.getElementById("current").textContent = "Menunggu lagu...";
+  currentSong = null;
+}
+
+// === QR Code untuk remote ===
+const remoteURL = window.location.origin + "/remote.html";
+new QRCode(document.getElementById("qrcode"), {
+  text: remoteURL,
+  width: 150,
+  height: 150,
+  colorDark : "#000000",
+  colorLight : "#ffffff",
+  correctLevel : QRCode.CorrectLevel.H
 });
 </script>
 </body>
