@@ -1,44 +1,113 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>Karaoke Operator - THE LINKS KTV</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE LINKS. KTV BATAM - Karaoke Control</title>
 <style>
-body{background:#000;color:#fff;font-family:sans-serif;text-align:center;margin:0;padding:0;}
-#player{width:80%;height:60vh;margin:auto;margin-top:30px;border:3px solid #1db954;border-radius:10px;}
-#current{margin-top:20px;font-size:20px;}
-#playlist{max-width:700px;margin:20px auto;text-align:left;}
-.song{background:#111;padding:10px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
-#qrPanel{position:fixed;right:20px;bottom:20px;background:rgba(255,255,255,0.1);padding:10px;border-radius:10px;text-align:center;}
-#qrcode{background:#fff;padding:8px;border-radius:8px;display:inline-block;}
-#qrTitle{font-size:14px;margin-bottom:5px;color:#FFD700;}
-button{background:#1db954;border:none;color:#fff;padding:8px 12px;border-radius:5px;cursor:pointer;margin-top:10px;}
+/* === Tampilan Operator Asli === */
+*{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
+body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;}
+header{padding:10px 20px;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:space-between;}
+#searchBar{display:flex;gap:10px;align-items:center;}
+input{padding:10px;border:none;border-radius:5px;width:300px;}
+button{background:#1db954;border:none;color:#fff;padding:10px 15px;border-radius:5px;cursor:pointer;transition:0.2s;}
 button:hover{background:#1ed760;}
+#container{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - 180px);}
+#searchResults,#playlist{overflow-y:auto;padding:15px;background:rgba(255,255,255,0.05);}
+.song{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);margin-bottom:8px;padding:8px;border-radius:6px;cursor:pointer;transition:0.2s;}
+.song:hover{background:rgba(255,255,255,0.15);}
+img.thumb{width:80px;border-radius:4px;}
+.title{font-weight:bold;font-size:14px;}
+.channel{font-size:12px;color:#ccc;}
+#controls{display:flex;gap:10px;justify-content:center;padding:10px;background:rgba(0,0,0,0.3);}
+#virtualKeyboard{display:none;grid-template-columns:repeat(10,1fr);gap:5px;padding:10px;background:rgba(0,0,0,0.3);position:absolute;bottom:10px;left:50%;transform:translateX(-50%);border-radius:10px;}
+#virtualKeyboard button{background:#333;border:1px solid #444;color:#FFD700;font-weight:bold;}
+#navButtons{display:flex;gap:5px;}
+
+/* === QR Button === */
+#qrToggleBtn{position:fixed;right:10px;bottom:10px;background:#FFD700;color:#000;font-weight:bold;border:none;border-radius:50%;width:45px;height:45px;cursor:pointer;z-index:1000;box-shadow:0 0 10px rgba(255,215,0,0.8);}
+#qrPanel{position:fixed;right:10px;bottom:10px;background:rgba(0,0,0,0.6);padding:10px;border-radius:10px;z-index:999;display:flex;flex-direction:column;align-items:center;}
+#qrcode{background:#fff;padding:8px;border-radius:6px;}
+#qrLinkInput{width:250px;margin-bottom:8px;padding:6px;border:none;border-radius:5px;}
+#closeQR{background:red;color:white;border:none;border-radius:4px;margin-top:6px;padding:3px 6px;cursor:pointer;}
+
+/* === Tampilan Remote === */
+#remoteUI{display:none;padding:20px;}
+#remoteUI input{width:70%;max-width:420px;}
+#remoteResults,#remotePlaylist{max-width:600px;margin:auto;margin-top:12px;text-align:left;}
+.remoteSong{background:#203a43;padding:8px;margin:6px;border-radius:6px;cursor:pointer;}
+.remoteSong:hover{background:#2c5364;}
+#remoteControls{display:flex;gap:8px;justify-content:center;margin-top:12px;}
+#remoteControls button{background:#FFD700;color:#000;font-weight:bold;padding:10px 12px;border-radius:6px;border:none;cursor:pointer;}
 </style>
 </head>
 <body>
-<h2>🎤 THE LINKS KTV - Operator</h2>
-<div id="player"></div>
-<div id="current">Menunggu lagu...</div>
 
-<h3>🎵 Playlist Lagu</h3>
-<div id="playlist"></div>
-<button onclick="clearPlaylist()">🗑️ Kosongkan Playlist</button>
+<!-- ================= Operator Layout ================= -->
+<header id="operatorHeader">
+  <div><strong>THE LINKS. KTV BATAM</strong></div>
+  <div id="searchBar">
+    <input type="text" id="searchInput" placeholder="Cari lagu..." />
+    <button id="searchBtn">Cari</button>
+    <div id="navButtons">
+      <button id="upBtn">▲</button>
+      <button id="downBtn">▼</button>
+    </div>
+    <button id="openPlayerBtn">Buka Layar 2</button>
+  </div>
+</header>
 
-<!-- Panel QR Remote -->
-<div id="qrPanel">
-  <div id="qrTitle">📱 Scan untuk buka Remote</div>
-  <div id="qrcode"></div>
+<div id="container">
+  <div id="searchResults"></div>
+  <div id="playlist"></div>
 </div>
 
-<!-- Firebase + YouTube + QR -->
+<div id="controls">
+  <button onclick="playSelected()">Play</button>
+  <button onclick="pauseVideo()">Pause</button>
+  <button onclick="nextSong()">Next</button>
+  <button onclick="clearPlaylist()">Clear</button>
+</div>
+
+<div id="virtualKeyboard"></div>
+
+<!-- QR Section -->
+<button id="qrToggleBtn">QR</button>
+<div id="qrPanel" style="display:none;">
+  <input id="qrLinkInput" placeholder="Masukkan link..." />
+  <button id="generateQRBtn">Buat QR</button>
+  <div id="qrcode"></div>
+  <button id="closeQR">Tutup</button>
+</div>
+
+<!-- ================= Remote Layout ================= -->
+<div id="remoteUI" aria-hidden="true">
+  <h2 style="text-align:center;margin-top:12px;">📱 THE LINKS KTV - Remote</h2>
+  <div style="text-align:center;margin-top:6px;">
+    <input id="remoteSearch" placeholder="Cari lagu karaoke..." />
+    <button id="remoteSearchBtn">Cari</button>
+  </div>
+  <div id="remoteResults"></div>
+
+  <h3 style="text-align:center;margin-top:10px;">🎵 Playlist Saat Ini</h3>
+  <div id="remotePlaylist"></div>
+
+  <h3 style="text-align:center;margin-top:8px;">🎮 Kontrol Pemutar</h3>
+  <div id="remoteControls">
+    <button data-action="play">▶️ Play</button>
+    <button data-action="pause">⏸️ Pause</button>
+    <button data-action="next">⏭️ Next</button>
+  </div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
-<script src="https://www.youtube.com/iframe_api"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
-// === Firebase Config ===
+/* ========= CONFIG ========= */
 const firebaseConfig = {
   apiKey: "AIzaSyBnW5cUpoHzUpdN0UuVR5q8D7Epzuh46MY",
   authDomain: "karaoke-remote.firebaseapp.com",
@@ -51,113 +120,107 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
+const remoteURL = "https://supiyantoian-gif.github.io/?mode=remote";
 
-let player;
-let currentSong = null;
+const params = new URLSearchParams(window.location.search);
+const isRemoteMode = params.get('mode') === 'remote';
 
-// === YouTube Player ===
-function onYouTubeIframeAPIReady() {
-  player = new YT.Player('player', {
-    height: '390',
-    width: '640',
-    videoId: '',
-    playerVars: { 'autoplay': 1, 'controls': 1 },
-    events: {
-      'onReady': () => console.log("Player siap"),
-      'onStateChange': onPlayerStateChange
-    }
-  });
+/* ========= QR GENERATOR ========= */
+const qrBtn = document.getElementById('qrToggleBtn');
+const qrPanel = document.getElementById('qrPanel');
+const qrDiv = document.getElementById('qrcode');
+const qrInput = document.getElementById('qrLinkInput');
+qrInput.value = remoteURL;
+let qr;
+function generateQR(link){
+  qrDiv.innerHTML='';
+  qr=new QRCode(qrDiv,{text:link,width:150,height:150});
+}
+generateQR(remoteURL);
+qrBtn.onclick=()=>{qrPanel.style.display=qrPanel.style.display==='none'?'flex':'none';};
+document.getElementById('generateQRBtn').onclick=()=>generateQR(qrInput.value);
+document.getElementById('closeQR').onclick=()=>qrPanel.style.display='none';
+
+/* ========= MODE SWITCH ========= */
+if(isRemoteMode){
+  document.getElementById('operatorHeader').style.display='none';
+  document.getElementById('container').style.display='none';
+  document.getElementById('controls').style.display='none';
+  document.getElementById('qrToggleBtn').style.display='none';
+  document.getElementById('qrPanel').style.display='none';
+  document.getElementById('remoteUI').style.display='block';
 }
 
-// === Saat lagu selesai otomatis lanjut ===
-function onPlayerStateChange(e){
-  if(e.data === YT.PlayerState.ENDED){
-    nextSong();
-  }
-}
-
-// === Render playlist ===
-function renderPlaylist(list){
-  const p = document.getElementById("playlist");
-  p.innerHTML = "";
-  list.forEach((s, i)=>{
-    const div = document.createElement("div");
-    div.className = "song";
-    div.innerHTML = `<div>${i+1}. ${s.title}</div><button onclick="removeSong(${i})">❌</button>`;
+/* ========= PLAYLIST SYNC ========= */
+let playlist = [];
+function renderPlaylist(){
+  const p=document.getElementById('playlist');
+  p.innerHTML='';
+  playlist.forEach((s,i)=>{
+    const div=document.createElement('div');
+    div.className='song';
+    div.innerHTML=`${i+1}. ${s.title}`;
+    div.onclick=()=>{db.ref("karaoke/control").set({action:'play'});};
     p.appendChild(div);
   });
 }
-
-// === Ambil playlist realtime ===
-db.ref("karaoke/playlist").on("value", snap=>{
-  const list = snap.val() || [];
-  renderPlaylist(list);
-  if(!currentSong && list.length > 0){
-    playSong(list[0]);
-  }
+db.ref("karaoke/playlist").on("value",snap=>{
+  playlist=snap.val()||[];
+  renderPlaylist();
+  renderRemotePlaylist();
 });
 
-// === Kontrol dari Remote ===
-db.ref("karaoke/control").on("value", snap=>{
-  const c = snap.val();
-  if(!c) return;
-  if(c.action === "play" && player) player.playVideo();
-  if(c.action === "pause" && player) player.pauseVideo();
-  if(c.action === "next") nextSong();
+/* ========= FIREBASE CONTROL ========= */
+db.ref("karaoke/control").on("value",snap=>{
+  const c=snap.val();
+  if(!c)return;
+  if(c.action==='play')console.log('▶️ Play');
+  if(c.action==='pause')console.log('⏸️ Pause');
+  if(c.action==='next')console.log('⏭️ Next');
+  setTimeout(()=>db.ref("karaoke/control").set(null),700);
 });
 
-// === Play lagu ===
-function playSong(song){
-  if(!song) return;
-  currentSong = song;
-  document.getElementById("current").textContent = "🎵 " + song.title;
-  player.loadVideoById(song.id);
-  db.ref("karaoke/current").set(song);
+/* ========= REMOTE MODE ========= */
+const rSearch=document.getElementById('remoteSearch');
+const rBtn=document.getElementById('remoteSearchBtn');
+const rResults=document.getElementById('remoteResults');
+const rPlaylist=document.getElementById('remotePlaylist');
+rBtn.onclick=()=>doRemoteSearch();
+async function doRemoteSearch(){
+  const q=rSearch.value.trim();if(!q)return;
+  rResults.innerHTML='<i>Mencari...</i>';
+  const url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(q+' karaoke')}&key=${API_KEY}`;
+  const res=await fetch(url);const data=await res.json();rResults.innerHTML='';
+  (data.items||[]).forEach(item=>{
+    const div=document.createElement('div');
+    div.className='remoteSong';
+    div.innerHTML=`<b>${item.snippet.title}</b><br><small>${item.snippet.channelTitle}</small>`;
+    div.onclick=()=>{addToPlaylist(item.id.videoId,item.snippet.title);};
+    rResults.appendChild(div);
+  });
 }
-
-// === Hapus lagu ===
-function removeSong(index){
+function addToPlaylist(id,title){
   db.ref("karaoke/playlist").once("value").then(snap=>{
-    const list = snap.val() || [];
-    list.splice(index,1);
+    const list=snap.val()||[];
+    list.push({id,title});
     db.ref("karaoke/playlist").set(list);
   });
 }
-
-// === Lagu berikutnya ===
-function nextSong(){
-  db.ref("karaoke/playlist").once("value").then(snap=>{
-    const list = snap.val() || [];
-    if(list.length > 1){
-      list.shift();
-      db.ref("karaoke/playlist").set(list);
-      playSong(list[0]);
-    } else {
-      db.ref("karaoke/playlist").set([]);
-      document.getElementById("current").textContent = "Menunggu lagu...";
-      currentSong = null;
-    }
+function renderRemotePlaylist(){
+  if(!isRemoteMode)return;
+  rPlaylist.innerHTML='';
+  playlist.forEach((s,i)=>{
+    const div=document.createElement('div');
+    div.className='remoteSong';
+    div.textContent=`${i+1}. ${s.title}`;
+    rPlaylist.appendChild(div);
   });
 }
-
-// === Kosongkan playlist ===
-function clearPlaylist(){
-  db.ref("karaoke/playlist").set([]);
-  document.getElementById("playlist").innerHTML = "";
-  document.getElementById("current").textContent = "Menunggu lagu...";
-  currentSong = null;
-}
-
-// === QR Code (otomatis link ke remote.html) ===
-const remoteURL = window.location.origin + "/remote.html";
-new QRCode(document.getElementById("qrcode"), {
-  text: remoteURL,
-  width: 150,
-  height: 150,
-  colorDark : "#000000",
-  colorLight : "#ffffff",
-  correctLevel : QRCode.CorrectLevel.H
-});
+document.getElementById('remoteControls').onclick=(e)=>{
+  const act=e.target.dataset.action;if(!act)return;
+  db.ref("karaoke/control").set({action:act});
+};
 </script>
 </body>
 </html>
