@@ -143,8 +143,9 @@ window.addEventListener('load', ()=> {
     } catch(e){
       console.error('QR gen error', e);
     }
-
-    // desktop listens to firebase commands
+console.log("🔥 Desktop listening to Firebase...");
+db.ref('commands').on('value', (snapshot) => {
+   // desktop listens to firebase commands
     db.ref('commands').on('value', (snapshot) => {
       const cmd = snapshot.val();
       if (!cmd || !cmd.action) return;
@@ -507,3 +508,4 @@ document.addEventListener('click', e => { if(!vk.contains(e.target) && e.target 
 </script>
 </body>
 </html>
+
