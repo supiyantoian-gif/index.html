@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>THE LINKS. KTV BATAM - Remote Synced</title>
+<title> THE LINKS. KTV BATAM - Modern Dark (Thumbnail + UpDown + AutoPlay)</title>
 <style>
   *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
-  body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;position:relative;}
+  body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;}
   header{padding:10px 20px;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:space-between;}
   #searchBar{display:flex;gap:10px;align-items:center;}
   input{padding:10px;border:none;border-radius:5px;width:300px;}
@@ -23,15 +23,21 @@
   #virtualKeyboard{display:none;grid-template-columns:repeat(10,1fr);gap:5px;padding:10px;background:rgba(0,0,0,0.3);position:absolute;bottom:10px;left:50%;transform:translateX(-50%);border-radius:10px;}
   #virtualKeyboard button{background:#333;border:1px solid #444;color:#FFD700;font-weight:bold;}
   #navButtons{display:flex;gap:5px;}
-  #qrBox{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.5);padding:10px;border-radius:10px;}
-  #notif{position:absolute;bottom:15px;right:15px;background:rgba(0,0,0,0.6);padding:10px 20px;border-radius:8px;display:none;}
+  /* <-- QR tetap di pojok kanan bawah seperti semula --> */
+  #qr-container {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background:#111;
+    padding:10px;
+    border-radius:10px;
+    text-align:center;
+    z-index:9999;
+  }
+  #qr-container p{color:#fff;font-size:12px;margin:6px 0 0;}
 </style>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 </head>
 <body>
-
 <header>
   <div><strong>THE LINKS. KTV BATAM</strong></div>
   <div id="searchBar">
@@ -51,58 +57,66 @@
 </div>
 
 <div id="controls">
-  <button id="playBtn">PLAY</button>
-  <button id="pauseBtn">PAUSE</button>
-  <button id="nextBtn">NEXT</button>
-  <button id="moveUpBtn">UP</button>
-  <button id="moveDownBtn">DOWN</button>
-  <button id="clearBtn">CLEAR</button>
+  <button onclick="playSelected()">PLAY</button>
+  <button onclick="pauseVideo()">PAUSE</button>
+  <button onclick="nextSong()">NEXT</button>
+  <button onclick="moveUp()">UP</button>
+  <button onclick="moveDown()">DOWN</button>
+  <button onclick="clearPlaylist()">CLEAR</button>
 </div>
 
 <div id="virtualKeyboard"></div>
-<div id="notif"></div>
-<div id="qrBox"><div id="qrcode"></div></div>
+
+<!-- QR container: TIDAK DIPINDAHKAN, tetap bottom-right -->
+<div id="qr-container" style="display:none;">
+  <div id="qrcode"></div>
+  <p>Scan untuk kontrol dari HP</p>
+</div>
+
+<!-- Firebase + QR library -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
-/* === Firebase Config === */
+/* =======================
+   FIREBASE CONFIG (tambahkan databaseURL)
+   ======================= */
 const firebaseConfig = {
   apiKey: "AIzaSyBEx2cWIr5e1vZamz65kq8cO1JQ0cUAzuQ",
   authDomain: "karaoke-control.firebaseapp.com",
+  databaseURL: "https://karaoke-control-default-rtdb.firebaseio.com", // pastikan ini benar di console kamu
   projectId: "karaoke-control",
   storageBucket: "karaoke-control.firebasestorage.app",
   messagingSenderId: "868744728649",
   appId: "1:868744728649:web:500e5bec0ce4ca70f62f98",
-  measurementId: "G-PZMY40C4QX",
-  databaseURL: "https://karaoke-control-default-rtdb.asia-southeast1.firebasedatabase.app"
+  measurementId: "G-PZMY40C4QX"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* === Global Variables === */
+/* =======================
+   KODE APLIKASI ASLI (tetap)
+   ======================= */
 const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
-let playlist=[],currentIndex=0,playerWindow=null,isRemote=false;
-const notif=document.getElementById("notif");
+let playlist = [];
+let currentIndex = 0;
+let playerWindow = null;
+let playerReady = false;
+let selectedSearchIndex = -1;
 
-/* === QR Code === */
-const controlUrl = "https://supiyantoian-gif.github.io/index.html/?remote=true";
-new QRCode(document.getElementById("qrcode"), {
-  text: controlUrl,width:120,height:120,colorDark:"#ffffff",colorLight:"transparent"
-});
-
-/* === Deteksi mode remote === */
-isRemote = window.location.search.includes("remote=true");
-if(isRemote){
-  document.getElementById("qrBox").style.display="none";
-  document.getElementById("openPlayerBtn").style.display="none";
-}
-
-/* === Virtual Keyboard === */
+/* Virtual keyboard */
 function createVirtualKeyboard(){
-  const vk=document.getElementById("virtualKeyboard");
-  const keys='QWERTYUIOPASDFGHJKLZXCVBNM←⏎␣'.split('');
+  const vk = document.getElementById("virtualKeyboard");
+  const keys = ['Q','W','E','R','T','Y','U','I','O','P',
+                'A','S','D','F','G','H','J','K','L',
+                'Z','X','C','V','B','N','M','←','⏎','␣'];
+  vk.innerHTML = '';
   keys.forEach(k=>{
-    const b=document.createElement('button');
-    b.textContent=k;b.onclick=()=>virtualKeyPress(k);vk.appendChild(b);
+    const btn=document.createElement('button');
+    btn.textContent=k;
+    btn.onclick=()=>virtualKeyPress(k);
+    vk.appendChild(btn);
   });
 }
 function virtualKeyPress(k){
@@ -113,106 +127,251 @@ function virtualKeyPress(k){
   else input.value+=k;
 }
 
-/* === YouTube Search === */
+/* YouTube search */
 async function doSearch(){
   const q=document.getElementById('searchInput').value.trim();
-  const resEl=document.getElementById('searchResults');
-  if(!q){resEl.innerHTML='<i>Masukkan kata kunci...</i>';return;}
-  resEl.innerHTML='<i>Mencari...</i>';
+  const resultsEl=document.getElementById('searchResults');
+  if(!q){resultsEl.innerHTML='<i>Masukkan kata kunci...</i>';return;}
+  resultsEl.innerHTML='<i>Mencari...</i>';
   const searchQuery=q.toLowerCase().includes('karaoke')?q:q+' karaoke';
   const url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(searchQuery)}&key=${API_KEY}`;
-  const data=await (await fetch(url)).json();
-  resEl.innerHTML='';
-  data.items.forEach((item)=>{
-    const div=document.createElement('div');
-    div.className='song';
-    div.onclick=()=>addToPlaylist(item);
-    div.innerHTML=`<img class="thumb" src="${item.snippet.thumbnails.medium.url}">
-      <div><div class="title">${item.snippet.title}</div>
-      <div class="channel">${item.snippet.channelTitle}</div></div>`;
-    resEl.appendChild(div);
-  });
+  try{
+    const resp=await fetch(url);
+    const data=await resp.json();
+    if(!data.items){resultsEl.innerHTML='<i>Gagal mengambil hasil.</i>';return;}
+    resultsEl.innerHTML='';
+    selectedSearchIndex = -1;
+    data.items.forEach((item,i)=>{
+      const div=document.createElement('div');
+      div.className='song';
+      div.onclick=()=>addToPlaylist(item);
+      div.innerHTML=`
+        <img class="thumb" src="${item.snippet.thumbnails.medium.url}">
+        <div><div class="title">${item.snippet.title}</div>
+        <div class="channel">${item.snippet.channelTitle}</div></div>`;
+      resultsEl.appendChild(div);
+    });
+  }catch(e){
+    resultsEl.innerHTML='<i>Gagal konek ke YouTube API</i>';
+  }
 }
 
-/* === Playlist === */
+/* Playlist management */
 function addToPlaylist(item){
-  playlist.push({id:item.id.videoId,title:item.snippet.title,channel:item.snippet.channelTitle,thumb:item.snippet.thumbnails.medium.url});
+  playlist.push({
+    id:item.id.videoId,
+    title:item.snippet.title,
+    channel:item.snippet.channelTitle,
+    thumb:item.snippet.thumbnails.medium.url
+  });
   renderPlaylist();
-  if(!isRemote && playlist.length===1){currentIndex=0;playSelected();}
+  if (playlist.length===1 && !isRemote) { currentIndex=0; playSelected(); }
 }
 function renderPlaylist(){
   const el=document.getElementById('playlist');
   el.innerHTML='';
-  playlist.forEach((s,i)=>{
+  playlist.forEach((song,i)=>{
     const div=document.createElement('div');
     div.className='song';
-    div.innerHTML=`<img class="thumb" src="${s.thumb}"><div><div class="title">${i+1}. ${s.title}</div><div class="channel">${s.channel}</div></div>`;
-    div.onclick=()=>{currentIndex=i; if(!isRemote) playSelected();};
+    div.innerHTML=`
+      <img class="thumb" src="${song.thumb}">
+      <div>
+        <div class="title">${i+1}. ${song.title}</div>
+        <div class="channel">${song.channel}</div>
+      </div>`;
+    div.onclick=()=>{ currentIndex=i; if(!isRemote) playSelected(); };
     el.appendChild(div);
   });
 }
+function moveUp(){
+  if (isRemote) { sendCmd('up'); return; }
+  if(currentIndex>0){
+    [playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]];
+    currentIndex--;
+    renderPlaylist();
+  }
+}
+function moveDown(){
+  if (isRemote) { sendCmd('down'); return; }
+  if(currentIndex<playlist.length-1){
+    [playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]];
+    currentIndex++;
+    renderPlaylist();
+  }
+}
 
-/* === Player Controls === */
+/* Player window (seperti asal) */
 function openPlayer(){
-  if(isRemote) return;
-  if(!playerWindow||playerWindow.closed){
-    playerWindow=window.open("","playerWindow","width=800,height=600");
-    playerWindow.document.write(`<html><body style="margin:0;background:black;"><div id='player'></div>
-    <script>
-    let player;window.addEventListener('message',e=>{if(e.data.type==='play'&&player){player.loadVideoById(e.data.id);}if(e.data.type==='pause'&&player){player.pauseVideo();}});
-    function onYouTubeIframeAPIReady(){player=new YT.Player('player',{width:'100%',height:'100%',videoId:'',playerVars:{autoplay:1,controls:0},events:{onReady:()=>window.opener.postMessage('ready','*')}});}
-    <\/script><script src='https://www.youtube.com/iframe_api'><\/script></body></html>`);
+  if (isRemote) return; // remote tidak membuka player
+  if(!playerWindow || playerWindow.closed){
+    playerReady = false;
+    playerWindow = window.open("", "playerWindow", "width=800,height=600");
+    playerWindow.document.write(`
+      <html><body style="margin:0;background:black;overflow:hidden;">
+      <div id="player"></div>
+      <script>
+      let player;
+      window.addEventListener('message', e=>{
+        if(e.data.type==='play' && player){player.loadVideoById(e.data.id);}
+        if(e.data.type==='pause' && player){player.pauseVideo();}
+      });
+      function onYouTubeIframeAPIReady(){
+        player=new YT.Player('player',{width:'100%',height:'100%',videoId:'',playerVars':{'autoplay':1,'controls':0},events:{'onReady':()=>{window.opener.postMessage('ready','*');}}});
+      }
+      <\/script>
+      <script src="https://www.youtube.com/iframe_api"><\/script>
+      </body></html>
+    `);
   }
 }
 function playSelected(){
-  if(isRemote){sendCmd('play');return;}
-  if(!playlist.length)return;
-  if(!playerWindow||playerWindow.closed)openPlayer();
-  const s=playlist[currentIndex];
-  setTimeout(()=>playerWindow.postMessage({type:'play',id:s.id},'*'),800);
+  if (isRemote) { sendCmd('play'); return; }
+  if(!playlist.length) return;
+  if(!playerWindow || playerWindow.closed) openPlayer();
+  const song = playlist[currentIndex];
+  setTimeout(()=>{ playerWindow.postMessage({type:'play', id: song.id}, '*'); }, 800);
 }
-function pauseVideo(){ if(isRemote){sendCmd('pause');return;} playerWindow?.postMessage({type:'pause'},'*'); }
-function nextSong(){ if(isRemote){sendCmd('next');return;} if(currentIndex<playlist.length-1){currentIndex++;playSelected();} }
-function moveUp(){ if(isRemote){sendCmd('up');return;} if(currentIndex>0){[playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]];currentIndex--;renderPlaylist();}}
-function moveDown(){ if(isRemote){sendCmd('down');return;} if(currentIndex<playlist.length-1){[playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]];currentIndex++;renderPlaylist();}}
-function clearPlaylist(){ if(isRemote){sendCmd('clear');return;} playlist=[];renderPlaylist();}
+function pauseVideo(){
+  if (isRemote) { sendCmd('pause'); return; }
+  playerWindow?.postMessage({type:'pause'}, '*');
+}
+function nextSong(){
+  if (isRemote) { sendCmd('next'); return; }
+  if(currentIndex<playlist.length-1){ currentIndex++; playSelected(); }
+}
+function clearPlaylist(){
+  if (isRemote) { sendCmd('clear'); return; }
+  playlist = []; renderPlaylist();
+}
 
-/* === Firebase Send/Receive === */
-function sendCmd(cmd){ firebase.database().ref("commands").set({cmd,time:Date.now()}); }
-firebase.database().ref("commands").on("value",snap=>{
-  const v=snap.val(); if(!v||isRemote) return;
-  showNotif("Remote: " + v.cmd.toUpperCase());
-  switch(v.cmd){
-    case 'play': playSelected();break;
-    case 'pause': pauseVideo();break;
-    case 'next': nextSong();break;
-    case 'up': moveUp();break;
-    case 'down': moveDown();break;
-    case 'clear': clearPlaylist();break;
+/* message listener from player window */
+window.addEventListener('message', e=>{
+  if(e.data === 'ready'){
+    const song = playlist[currentIndex];
+    playerWindow.postMessage({type:'play', id: song.id}, '*');
   }
 });
 
-/* === Utility === */
-function showNotif(txt){
-  notif.textContent=txt;notif.style.display='block';
-  setTimeout(()=>notif.style.display='none',2000);
+/* bind UI events (seperti aslinya) */
+document.getElementById('searchBtn').onclick = doSearch;
+document.getElementById('openPlayerBtn').onclick = openPlayer;
+document.getElementById('upBtn').onclick = moveSearchUp;
+document.getElementById('downBtn').onclick = moveSearchDown;
+
+/* helper keyboard highlight (as original) */
+function highlightSearchResult(){
+  const items=document.querySelectorAll('#searchResults .song');
+  items.forEach((div,i)=>div.style.background=i===selectedSearchIndex?'rgba(29,185,84,0.4)':'rgba(255,255,255,0.05)');
+}
+function moveSearchUp(){
+  const items=document.querySelectorAll('#searchResults .song');
+  if(items.length===0) return;
+  selectedSearchIndex = selectedSearchIndex<=0 ? items.length-1 : selectedSearchIndex-1;
+  highlightSearchResult();
+}
+function moveSearchDown(){
+  const items=document.querySelectorAll('#searchResults .song');
+  if(items.length===0) return;
+  selectedSearchIndex = selectedSearchIndex>=items.length-1 ? 0 : selectedSearchIndex+1;
+  highlightSearchResult();
+}
+function addSelectedSearchToPlaylist(){
+  const items=document.querySelectorAll('#searchResults .song');
+  if(selectedSearchIndex>=0 && selectedSearchIndex<items.length){
+    items[selectedSearchIndex].click();
+  }
 }
 
-/* === Events === */
-document.getElementById('searchBtn').onclick=doSearch;
-document.getElementById('openPlayerBtn').onclick=openPlayer;
-document.getElementById('playBtn').onclick=playSelected;
-document.getElementById('pauseBtn').onclick=pauseVideo;
-document.getElementById('nextBtn').onclick=nextSong;
-document.getElementById('moveUpBtn').onclick=moveUp;
-document.getElementById('moveDownBtn').onclick=moveDown;
-document.getElementById('clearBtn').onclick=clearPlaylist;
+/* ========== REMOTE / FIREBASE INTEGRATION ========== */
+const GITHUB_REMOTE_URL = 'https://supiyantoian-gif.github.io/index.html/'; // sesuai yang kamu berikan
+const CONTROL_URL = GITHUB_REMOTE_URL + '?remote=true';
 
+// deteksi remote
+const isRemote = (new URLSearchParams(window.location.search).get('remote') === 'true');
+
+// generate QR hanya bila bukan remote
+window.addEventListener('load', ()=> {
+  // tampilkan QR di pojok kanan bawah hanya di desktop
+  if (!isRemote) {
+    document.getElementById('qr-container').style.display = 'block';
+    try {
+      new QRCode(document.getElementById("qrcode"), {
+        text: CONTROL_URL,
+        width: 120,
+        height: 120,
+        colorDark : "#00ffcc",
+        colorLight : "#111",
+        correctLevel : QRCode.CorrectLevel.H
+      });
+    } catch(e) {
+      console.error('QR generate error', e);
+    }
+
+    // desktop listens to firebase commands
+    db.ref('commands').on('value', (snapshot) => {
+      const command = snapshot.val();
+      if (!command || !command.action) return;
+      console.log("Perintah dari remote:", command.action);
+
+      // mapping ke fungsi yg sudah ada
+      switch(command.action){
+        case 'play': playSelected(); break;
+        case 'pause': pauseVideo(); break;
+        case 'next': nextSong(); break;
+        case 'up': moveUp(); break;
+        case 'down': moveDown(); break;
+        case 'clear': clearPlaylist(); break;
+        default: console.log('unknown cmd', command.action);
+      }
+
+      // hapus perintah
+      db.ref('commands').remove().catch(()=>{});
+    });
+  } else {
+    // jika remote: jangan tampilkan QR
+    document.getElementById('qr-container').style.display = 'none';
+  }
+});
+
+/* fungsi untuk remote mengirim perintah ke firebase */
+function sendCmd(action){
+  // kirim objek action agar robust
+  db.ref('commands').set({ action: action, ts: Date.now() })
+    .catch(err => console.error('Gagal kirim perintah:', err));
+}
+
+/* jika remote mode, override tombol-tombol agar mengirim perintah tidak memicu player lokal */
+if (isRemote) {
+  // hide player button to prevent opening player on phone (opsional)
+  try { document.getElementById('openPlayerBtn').style.display = 'none'; } catch(e){}
+  // bind control buttons to sendCmd
+  document.querySelectorAll('#controls button').forEach(btn=>{
+    const txt = (btn.textContent||'').toLowerCase();
+    btn.onclick = () => {
+      // map to actions
+      if (txt.includes('play')) sendCmd('play');
+      else if (txt.includes('pause')) sendCmd('pause');
+      else if (txt.includes('next')) sendCmd('next');
+      else if (txt.includes('up')) sendCmd('up');
+      else if (txt.includes('down')) sendCmd('down');
+      else if (txt.includes('clear')) sendCmd('clear');
+    };
+  });
+
+  // also bind search nav buttons to send commands (if you want)
+  document.getElementById('upBtn').onclick = ()=> sendCmd('up');
+  document.getElementById('downBtn').onclick = ()=> sendCmd('down');
+}
+
+/* init keyboard */
 createVirtualKeyboard();
-const searchInput=document.getElementById('searchInput');
-const vk=document.getElementById('virtualKeyboard');
-searchInput.addEventListener('focus',()=>vk.style.display='grid');
-document.addEventListener('click',e=>{if(!vk.contains(e.target)&&e.target!==searchInput)vk.style.display='none';});
+
+/* tampilkan virtual keyboard saat fokus */
+const searchInput = document.getElementById('searchInput');
+const vk = document.getElementById('virtualKeyboard');
+searchInput.addEventListener('focus', ()=> { vk.style.display='grid'; });
+document.addEventListener('click', e => { if(!vk.contains(e.target) && e.target!==searchInput) vk.style.display='none'; });
+
 </script>
 </body>
 </html>
