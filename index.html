@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>THE LINKS. KTV BATAM - Remote Control Ready</title>
+<title>THE LINKS. KTV BATAM - Remote Synced</title>
 <style>
   *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
   body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;position:relative;}
@@ -24,12 +24,14 @@
   #virtualKeyboard button{background:#333;border:1px solid #444;color:#FFD700;font-weight:bold;}
   #navButtons{display:flex;gap:5px;}
   #qrBox{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.5);padding:10px;border-radius:10px;}
+  #notif{position:absolute;bottom:15px;right:15px;background:rgba(0,0,0,0.6);padding:10px 20px;border-radius:8px;display:none;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 </head>
 <body>
+
 <header>
   <div><strong>THE LINKS. KTV BATAM</strong></div>
   <div id="searchBar">
@@ -49,15 +51,16 @@
 </div>
 
 <div id="controls">
-  <button onclick="playSelected()">PLAY</button>
-  <button onclick="pauseVideo()">PAUSE</button>
-  <button onclick="nextSong()">NEXT</button>
-  <button onclick="moveUp()">UP</button>
-  <button onclick="moveDown()">DOWN</button>
-  <button onclick="clearPlaylist()">CLEAR</button>
+  <button id="playBtn">PLAY</button>
+  <button id="pauseBtn">PAUSE</button>
+  <button id="nextBtn">NEXT</button>
+  <button id="moveUpBtn">UP</button>
+  <button id="moveDownBtn">DOWN</button>
+  <button id="clearBtn">CLEAR</button>
 </div>
 
 <div id="virtualKeyboard"></div>
+<div id="notif"></div>
 <div id="qrBox"><div id="qrcode"></div></div>
 
 <script>
@@ -75,40 +78,25 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* === QR Code untuk Remote === */
+/* === Global Variables === */
+const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
+let playlist=[],currentIndex=0,playerWindow=null,isRemote=false;
+const notif=document.getElementById("notif");
+
+/* === QR Code === */
 const controlUrl = "https://supiyantoian-gif.github.io/index.html/?remote=true";
 new QRCode(document.getElementById("qrcode"), {
-  text: controlUrl,
-  width: 120,
-  height: 120,
-  colorDark: "#ffffff",
-  colorLight: "transparent"
+  text: controlUrl,width:120,height:120,colorDark:"#ffffff",colorLight:"transparent"
 });
 
 /* === Deteksi mode remote === */
-const isRemote = window.location.search.includes("remote=true");
+isRemote = window.location.search.includes("remote=true");
 if(isRemote){
-  document.body.innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
-      <h2>REMOTE CONTROL</h2>
-      <button onclick="sendCmd('play')">▶️ PLAY</button>
-      <button onclick="sendCmd('pause')">⏸ PAUSE</button>
-      <button onclick="sendCmd('next')">⏭ NEXT</button>
-      <button onclick="sendCmd('up')">🔼 UP</button>
-      <button onclick="sendCmd('down')">🔽 DOWN</button>
-      <button onclick="sendCmd('clear')">🗑 CLEAR</button>
-    </div>`;
-  document.querySelectorAll('button').forEach(b=>{
-    b.style.margin='10px';b.style.padding='15px 30px';b.style.fontSize='18px';
-    b.style.borderRadius='10px';b.style.border='none';b.style.background='#1db954';b.style.color='white';
-  });
-  window.sendCmd = (cmd)=>firebase.database().ref("commands").set({cmd, time:Date.now()});
+  document.getElementById("qrBox").style.display="none";
+  document.getElementById("openPlayerBtn").style.display="none";
 }
 
-/* === Aplikasi utama === */
-const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
-let playlist=[],currentIndex=0,playerWindow=null,selectedSearchIndex=-1;
-
+/* === Virtual Keyboard === */
 function createVirtualKeyboard(){
   const vk=document.getElementById("virtualKeyboard");
   const keys='QWERTYUIOPASDFGHJKLZXCVBNM←⏎␣'.split('');
@@ -124,6 +112,8 @@ function virtualKeyPress(k){
   else if(k==='␣') input.value+=' ';
   else input.value+=k;
 }
+
+/* === YouTube Search === */
 async function doSearch(){
   const q=document.getElementById('searchInput').value.trim();
   const resEl=document.getElementById('searchResults');
@@ -143,10 +133,12 @@ async function doSearch(){
     resEl.appendChild(div);
   });
 }
+
+/* === Playlist === */
 function addToPlaylist(item){
   playlist.push({id:item.id.videoId,title:item.snippet.title,channel:item.snippet.channelTitle,thumb:item.snippet.thumbnails.medium.url});
   renderPlaylist();
-  if(playlist.length===1){currentIndex=0;playSelected();}
+  if(!isRemote && playlist.length===1){currentIndex=0;playSelected();}
 }
 function renderPlaylist(){
   const el=document.getElementById('playlist');
@@ -155,13 +147,14 @@ function renderPlaylist(){
     const div=document.createElement('div');
     div.className='song';
     div.innerHTML=`<img class="thumb" src="${s.thumb}"><div><div class="title">${i+1}. ${s.title}</div><div class="channel">${s.channel}</div></div>`;
-    div.onclick=()=>{currentIndex=i;playSelected();};
+    div.onclick=()=>{currentIndex=i; if(!isRemote) playSelected();};
     el.appendChild(div);
   });
 }
-function moveUp(){if(currentIndex>0){[playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]];currentIndex--;renderPlaylist();}}
-function moveDown(){if(currentIndex<playlist.length-1){[playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]];currentIndex++;renderPlaylist();}}
+
+/* === Player Controls === */
 function openPlayer(){
+  if(isRemote) return;
   if(!playerWindow||playerWindow.closed){
     playerWindow=window.open("","playerWindow","width=800,height=600");
     playerWindow.document.write(`<html><body style="margin:0;background:black;"><div id='player'></div>
@@ -171,24 +164,24 @@ function openPlayer(){
     <\/script><script src='https://www.youtube.com/iframe_api'><\/script></body></html>`);
   }
 }
-function playSelected(){if(!playlist.length)return;if(!playerWindow||playerWindow.closed)openPlayer();const s=playlist[currentIndex];setTimeout(()=>playerWindow.postMessage({type:'play',id:s.id},'*'),1000);}
-function nextSong(){if(currentIndex<playlist.length-1){currentIndex++;playSelected();}}
-function pauseVideo(){playerWindow?.postMessage({type:'pause'},'*');}
-function clearPlaylist(){playlist=[];renderPlaylist();}
-window.addEventListener('message',e=>{if(e.data==='ready'){const s=playlist[currentIndex];playerWindow.postMessage({type:'play',id:s.id},'*');}});
-document.getElementById('searchBtn').onclick=doSearch;
-document.getElementById('openPlayerBtn').onclick=openPlayer;
-document.getElementById('upBtn').onclick=()=>firebase.database().ref("commands").set({cmd:"up",time:Date.now()});
-document.getElementById('downBtn').onclick=()=>firebase.database().ref("commands").set({cmd:"down",time:Date.now()});
-createVirtualKeyboard();
-const searchInput=document.getElementById('searchInput');
-const vk=document.getElementById('virtualKeyboard');
-searchInput.addEventListener('focus',()=>vk.style.display='grid');
-document.addEventListener('click',e=>{if(!vk.contains(e.target)&&e.target!==searchInput)vk.style.display='none';});
+function playSelected(){
+  if(isRemote){sendCmd('play');return;}
+  if(!playlist.length)return;
+  if(!playerWindow||playerWindow.closed)openPlayer();
+  const s=playlist[currentIndex];
+  setTimeout(()=>playerWindow.postMessage({type:'play',id:s.id},'*'),800);
+}
+function pauseVideo(){ if(isRemote){sendCmd('pause');return;} playerWindow?.postMessage({type:'pause'},'*'); }
+function nextSong(){ if(isRemote){sendCmd('next');return;} if(currentIndex<playlist.length-1){currentIndex++;playSelected();} }
+function moveUp(){ if(isRemote){sendCmd('up');return;} if(currentIndex>0){[playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]];currentIndex--;renderPlaylist();}}
+function moveDown(){ if(isRemote){sendCmd('down');return;} if(currentIndex<playlist.length-1){[playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]];currentIndex++;renderPlaylist();}}
+function clearPlaylist(){ if(isRemote){sendCmd('clear');return;} playlist=[];renderPlaylist();}
 
-/* === Listener Firebase Command === */
+/* === Firebase Send/Receive === */
+function sendCmd(cmd){ firebase.database().ref("commands").set({cmd,time:Date.now()}); }
 firebase.database().ref("commands").on("value",snap=>{
-  const v=snap.val();if(!v)return;
+  const v=snap.val(); if(!v||isRemote) return;
+  showNotif("Remote: " + v.cmd.toUpperCase());
   switch(v.cmd){
     case 'play': playSelected();break;
     case 'pause': pauseVideo();break;
@@ -198,6 +191,28 @@ firebase.database().ref("commands").on("value",snap=>{
     case 'clear': clearPlaylist();break;
   }
 });
+
+/* === Utility === */
+function showNotif(txt){
+  notif.textContent=txt;notif.style.display='block';
+  setTimeout(()=>notif.style.display='none',2000);
+}
+
+/* === Events === */
+document.getElementById('searchBtn').onclick=doSearch;
+document.getElementById('openPlayerBtn').onclick=openPlayer;
+document.getElementById('playBtn').onclick=playSelected;
+document.getElementById('pauseBtn').onclick=pauseVideo;
+document.getElementById('nextBtn').onclick=nextSong;
+document.getElementById('moveUpBtn').onclick=moveUp;
+document.getElementById('moveDownBtn').onclick=moveDown;
+document.getElementById('clearBtn').onclick=clearPlaylist;
+
+createVirtualKeyboard();
+const searchInput=document.getElementById('searchInput');
+const vk=document.getElementById('virtualKeyboard');
+searchInput.addEventListener('focus',()=>vk.style.display='grid');
+document.addEventListener('click',e=>{if(!vk.contains(e.target)&&e.target!==searchInput)vk.style.display='none';});
 </script>
 </body>
 </html>
