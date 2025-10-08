@@ -143,49 +143,50 @@ window.addEventListener('load', ()=> {
     } catch(e){
       console.error('QR gen error', e);
     }
-console.log("🔥 Desktop listening to Firebase...");
-db.ref('commands').on('value', (snapshot) => {
-  const cmd = snapshot.val();
-  if (!cmd || !cmd.action) return;
-  console.log('Perintah diterima desktop:', cmd);
 
-  // handle actions
-  switch(cmd.action){
-    case 'play':
-      playSelected(); break;
-    case 'pause':
-      pauseVideo(); break;
-    case 'next':
-      nextSong(); break;
-    case 'up':
-      if(currentIndex>0){ moveUpLocal(); showNotif('Moved up'); }
-      break;
-    case 'down':
-      if(currentIndex < playlist.length-1){ moveDownLocal(); showNotif('Moved down'); }
-      break;
-    case 'clear':
-      clearPlaylistLocal(); break;
-    case 'add':
-      if(cmd.payload && cmd.payload.id){
-        playlist.push({
-          id: cmd.payload.id,
-          title: cmd.payload.title || 'Unknown',
-          channel: cmd.payload.channel || '',
-          thumb: cmd.payload.thumb || ''
-        });
-        renderPlaylist();
-        showNotif('Added from remote');
-        if(playlist.length === 1){ currentIndex = 0; playSelected(); }
+    // desktop listens to firebase commands
+    db.ref('commands').on('value', (snapshot) => {
+      const cmd = snapshot.val();
+      if (!cmd || !cmd.action) return;
+      console.log('Perintah diterima desktop:', cmd);
+
+      // handle actions
+      switch(cmd.action){
+        case 'play':
+          playSelected(); break;
+        case 'pause':
+          pauseVideo(); break;
+        case 'next':
+          nextSong(); break;
+        case 'up':
+          // when remote asked to move selected search up (or move playlist up)
+          // here we try to emulate the existing moveUp behavior (on playlist)
+          if(currentIndex>0){ moveUpLocal(); showNotif('Moved up'); }
+          break;
+        case 'down':
+          if(currentIndex < playlist.length-1){ moveDownLocal(); showNotif('Moved down'); }
+          break;
+        case 'clear':
+          clearPlaylistLocal(); break;
+        case 'add':
+          // payload expected: { id, title, channel, thumb }
+          if(cmd.payload && cmd.payload.id){
+            // add to desktop playlist
+            playlist.push({
+              id: cmd.payload.id,
+              title: cmd.payload.title || 'Unknown',
+              channel: cmd.payload.channel || '',
+              thumb: cmd.payload.thumb || ''
+            });
+            renderPlaylist();
+            showNotif('Added from remote');
+            // if empty before, auto play
+            if(playlist.length === 1){ currentIndex = 0; playSelected(); }
+          }
+          break;
+        default:
+          console.log('Unknown action', cmd.action);
       }
-      break;
-    default:
-      console.log('Unknown action', cmd.action);
-  }
-
-  // hapus command setelah dijalankan
-  db.ref('commands').remove().catch(()=>{});
-});
-
 
       // remove command after processing
       db.ref('commands').remove().catch(()=>{});
@@ -506,5 +507,3 @@ document.addEventListener('click', e => { if(!vk.contains(e.target) && e.target 
 </script>
 </body>
 </html>
-
-
