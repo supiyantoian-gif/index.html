@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> THE LINKS. KTV BATAM - Modern Dark (Thumbnail + UpDown + AutoPlay)</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title> THE LINKS. KTV BATAM - Modern Dark (Karaoke + QR Remote)</title>
 <style>
   *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
   body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;}
@@ -23,10 +23,20 @@
   #virtualKeyboard{display:none;grid-template-columns:repeat(10,1fr);gap:5px;padding:10px;background:rgba(0,0,0,0.3);position:absolute;bottom:10px;left:50%;transform:translateX(-50%);border-radius:10px;}
   #virtualKeyboard button{background:#333;border:1px solid #444;color:#FFD700;font-weight:bold;}
   #navButtons{display:flex;gap:5px;}
+  /* QR container */
+  #qr-container { position: fixed; bottom: 12px; right: 12px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 10px; text-align:center; z-index:9999;}
+  #qr-container p{margin:6px 0 0;font-size:12px;color:#aaa;}
+  /* Remote view styling (when opened from phone) */
+  #remote{display:none;padding:20px;text-align:center;}
+  #remote button { display:block; width:80%; margin:10px auto; font-size:20px; padding:14px; border-radius:10px; }
+  /* Hide main UI when in remote mode */
+  .hidden{display:none !important;}
 </style>
 </head>
 <body>
-<header>
+
+<!-- ========== HEADER ========== -->
+<header id="mainHeader">
   <div><strong>THE LINKS. KTV BATAM</strong></div>
   <div id="searchBar">
     <input type="text" id="searchInput" placeholder="Cari lagu..." />
@@ -39,23 +49,69 @@
   </div>
 </header>
 
-<div id="container">
-  <div id="searchResults"></div>
-  <div id="playlist"></div>
+<!-- ========== MAIN APP UI ========== -->
+<div id="appUI">
+  <div id="container">
+    <div id="searchResults"></div>
+    <div id="playlist"></div>
+  </div>
+
+  <div id="controls">
+    <button onclick="playSelected()">PLAY</button>
+    <button onclick="pauseVideo()">PAUSE</button>
+    <button onclick="nextSong()">NEXT</button>
+    <button onclick="moveUp()">UP</button>
+    <button onclick="moveDown()">DOWN</button>
+    <button onclick="clearPlaylist()">CLEAR</button>
+  </div>
+
+  <div id="virtualKeyboard"></div>
 </div>
 
-<div id="controls">
-  <button onclick="playSelected()">PLAY</button>
-  <button onclick="pauseVideo()">PAUSE</button>
-  <button onclick="nextSong()">NEXT</button>
-  <button onclick="moveUp()">UP</button>
-  <button onclick="moveDown()">DOWN</button>
-  <button onclick="clearPlaylist()">CLEAR</button>
+<!-- ========== REMOTE UI (untuk HP setelah scan QR) ========== -->
+<div id="remote">
+  <h2>🎤 Remote Karaoke</h2>
+  <button onclick="sendCmd('play')">▶️ Play</button>
+  <button onclick="sendCmd('pause')">⏸ Pause</button>
+  <button onclick="sendCmd('next')">⏭ Next</button>
+  <button onclick="sendCmd('prev')">⏮ Prev</button>
+  <button onclick="sendCmd('up')">⬆ Up (search)</button>
+  <button onclick="sendCmd('down')">⬇ Down (search)</button>
+  <button onclick="sendCmd('clear')">🗑️ Clear Playlist</button>
 </div>
 
-<div id="virtualKeyboard"></div>
+<!-- QR container (desktop) -->
+<div id="qr-container" style="display:none;">
+  <div id="qrcode"></div>
+  <p>Scan untuk kontrol dari HP</p>
+</div>
+
+<!-- ========== SCRIPTS: YouTube API is used inside original app window via window.open player (unchanged) ========== -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
+/* =========================
+   FIREBASE CONFIG
+   (dari data yang kamu kasih sebelumnya)
+   ========================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBEx2cWIr5e1vZamz65kq8cO1JQ0cUAzuQ",
+  authDomain: "karaoke-control.firebaseapp.com",
+  databaseURL: "https://karaoke-control-default-rtdb.firebaseio.com",
+  projectId: "karaoke-control",
+  storageBucket: "karaoke-control.firebasestorage.app",
+  messagingSenderId: "868744728649",
+  appId: "1:868744728649:web:500e5bec0ce4ca70f62f98",
+  measurementId: "G-PZMY40C4QX"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* =========================
+   Aplikasi Karaoke (kode asli kamu)
+   ========================= */
 const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
 let playlist = [];
 let currentIndex = 0;
@@ -65,6 +121,7 @@ let selectedSearchIndex = -1;
 
 function createVirtualKeyboard(){
   const vk = document.getElementById("virtualKeyboard");
+  vk.innerHTML = '';
   const keys = ['Q','W','E','R','T','Y','U','I','O','P',
                 'A','S','D','F','G','H','J','K','L',
                 'Z','X','C','V','B','N','M','←','⏎','␣'];
@@ -228,7 +285,7 @@ function clearPlaylist(){
   playlist=[];renderPlaylist();
 }
 
-// === Keyboard dan event handler ===
+// message listener dari player window
 window.addEventListener('message',e=>{
   if(e.data==='ready'){
     const song=playlist[currentIndex];
@@ -255,6 +312,84 @@ document.addEventListener('click',e=>{
     vk.style.display='none';
   }
 });
+
+/* =========================
+   QR + Remote Integration
+   ========================= */
+
+// Gunakan URL GitHub Pages yang kamu berikan:
+const GITHUB_URL = 'https://supiyantoian-gif.github.io/index.html'; // <-- fixed link
+const controlUrl = GITHUB_URL + '?remote=true';
+
+// Mode detection: mobile or ?remote=true param
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const urlParams = new URLSearchParams(window.location.search);
+const remoteParam = urlParams.get('remote') === 'true';
+
+// If remote mode (mobile or param) -> show remote UI only
+function showRemoteUI(){
+  document.getElementById('appUI').classList.add('hidden');
+  document.getElementById('mainHeader').classList.add('hidden');
+  document.getElementById('qr-container').style.display = 'none';
+  document.getElementById('remote').style.display = 'block';
+}
+
+// If desktop -> show app UI and QR
+function showDesktopUI(){
+  document.getElementById('appUI').classList.remove('hidden');
+  document.getElementById('mainHeader').classList.remove('hidden');
+  document.getElementById('remote').style.display = 'none';
+  document.getElementById('qr-container').style.display = 'block';
+  // generate QR
+  new QRCode(document.getElementById("qrcode"), {
+    text: controlUrl,
+    width: 120,
+    height: 120,
+    colorDark : "#00ffcc",
+    colorLight : "#111",
+    correctLevel : QRCode.CorrectLevel.H
+  });
+}
+
+window.addEventListener('load',()=>{
+  if(isMobile || remoteParam){
+    showRemoteUI();
+  } else {
+    showDesktopUI();
+  }
+
+  // Desktop listens to firebase commands
+  if(!isMobile && !remoteParam){
+    db.ref('commands').on('value', (snapshot) => {
+      const command = snapshot.val();
+      if (!command || !command.action) return;
+      console.log("Perintah diterima dari remote:", command.action);
+
+      // Jalankan aksi mapping ke fungsi yang ada
+      switch(command.action){
+        case 'play': playSelected(); break;
+        case 'pause': pauseVideo(); break;
+        case 'next': nextSong(); break;
+        case 'prev': if(currentIndex>0){ currentIndex--; playSelected(); } break;
+        case 'up': moveSearchUp(); break;
+        case 'down': moveSearchDown(); break;
+        case 'clear': clearPlaylist(); break;
+        default: console.log('Unknown command', command.action);
+      }
+
+      // Hapus perintah agar tidak ter-trigger lagi
+      db.ref('commands').remove().catch(()=>{});
+    });
+  }
+});
+
+// function remote -> kirim command ke firebase
+function sendCmd(action){
+  // include timestamp to avoid caching in some rare cases
+  db.ref('commands').set({ action: action, ts: Date.now() })
+    .catch(err => console.error('Gagal kirim perintah:', err));
+}
+
 </script>
 </body>
 </html>
