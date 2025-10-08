@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>THE LINKS. KTV BATAM - Modern Dark (Remote Control)</title>
+<title>THE LINKS. KTV BATAM - Remote Fixed</title>
 <style>
   *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
   body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;}
@@ -34,10 +34,6 @@
     z-index:9999;
   }
   #qr-container p{color:#fff;font-size:12px;margin:6px 0 0;}
-  @media (max-width:600px){
-    input{width:160px;}
-    img.thumb{width:64px;}
-  }
 </style>
 </head>
 <body>
@@ -71,19 +67,20 @@
 
 <div id="virtualKeyboard"></div>
 
-<!-- QR container -->
 <div id="qr-container" style="display:none;">
   <div id="qrcode"></div>
   <p>Scan untuk kontrol dari HP</p>
 </div>
 
-<!-- Firebase v8 compat + QR -->
+<!-- Firebase & QRCode -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
 const isRemote = (new URLSearchParams(window.location.search).get('remote') === 'true');
+
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBEx2cWIr5e1vZamz65kq8cO1JQ0cUAzuQ",
   authDomain: "karaoke-control.firebaseapp.com",
@@ -91,178 +88,85 @@ const firebaseConfig = {
   projectId: "karaoke-control",
   storageBucket: "karaoke-control.firebasestorage.app",
   messagingSenderId: "868744728649",
-  appId: "1:868744728649:web:500e5bec0ce4ca70f62f98",
-  measurementId: "G-PZMY40C4QX"
+  appId: "1:868744728649:web:500e5bec0ce4ca70f62f98"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// YouTube API key
 const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
-let playlist = [], currentIndex = 0, playerWindow = null, selectedSearchIndex = -1;
 
-function sendCmd(action, payload = null){
-  db.ref('commands').push({ action, payload, ts: Date.now() })
-    .catch(err => console.error('Gagal kirim perintah:', err));
+let playlist = [];
+let currentIndex = 0;
+let playerWindow = null;
+
+// === SEND COMMAND ===
+function sendCmd(action) {
+  console.log("📤 Mengirim ke Firebase:", action);
+  db.ref("commands").set({
+    action: action,
+    ts: Date.now()
+  }).then(() => {
+    console.log("✅ Terkirim ke Firebase:", action);
+  }).catch(err => console.error("❌ Gagal kirim:", err));
 }
 
-// === QR GENERATION ===
-const CONTROL_URL = 'https://supiyantoian-gif.github.io/index.html/?remote=true';
-window.addEventListener('load', ()=> {
+// === LISTEN COMMAND (DESKTOP ONLY) ===
+if (!isRemote) {
+  db.ref("commands").on("value", snapshot => {
+    const cmd = snapshot.val();
+    if (!cmd || !cmd.action) return;
+    console.log("📥 Diterima dari remote:", cmd.action);
+
+    switch (cmd.action) {
+      case "play": playSelected(); break;
+      case "pause": pauseVideo(); break;
+      case "next": nextSong(); break;
+      case "up": moveUpLocal(); break;
+      case "down": moveDownLocal(); break;
+      case "clear": clearPlaylistLocal(); break;
+    }
+
+    // reset agar siap menerima perintah berikut
+    db.ref("commands").set({});
+  });
+}
+
+// === QR GENERATOR ===
+const CONTROL_URL = "https://supiyantoian-gif.github.io/index.html/?remote=true";
+window.addEventListener("load", () => {
   if (!isRemote) {
-    const qrBox = document.getElementById('qr-container');
-    qrBox.style.display = 'block';
+    const qrBox = document.getElementById("qr-container");
+    qrBox.style.display = "block";
     new QRCode(document.getElementById("qrcode"), {
       text: CONTROL_URL,
-      width: 120, height: 120,
-      colorDark : "#00ffcc", colorLight : "#111",
-      correctLevel : QRCode.CorrectLevel.H
-    });
-
-    db.ref('commands').on('child_added', (snapshot) => {
-      const cmd = snapshot.val();
-      if (!cmd || !cmd.action) return;
-      console.log('Perintah diterima desktop:', cmd);
-
-      switch(cmd.action){
-        case 'play': playSelected(); break;
-        case 'pause': pauseVideo(); break;
-        case 'next': nextSong(); break;
-        case 'up': if(currentIndex>0){ moveUpLocal(); showNotif('Moved up'); } break;
-        case 'down': if(currentIndex<playlist.length-1){ moveDownLocal(); showNotif('Moved down'); } break;
-        case 'clear': clearPlaylistLocal(); break;
-        case 'add':
-          if(cmd.payload && cmd.payload.id){
-            playlist.push({
-              id: cmd.payload.id,
-              title: cmd.payload.title || 'Unknown',
-              channel: cmd.payload.channel || '',
-              thumb: cmd.payload.thumb || ''
-            });
-            renderPlaylist();
-            showNotif('Added from remote');
-            if(playlist.length === 1){ currentIndex = 0; playSelected(); }
-          }
-          break;
-      }
-      db.ref('commands').child(snapshot.key).remove().catch(()=>{});
+      width: 120,
+      height: 120,
+      colorDark: "#00ffcc",
+      colorLight: "#111",
+      correctLevel: QRCode.CorrectLevel.H
     });
   } else {
-    document.getElementById('qr-container').style.display = 'none';
+    document.getElementById("qr-container").style.display = "none";
   }
 });
 
-function showNotif(text){
-  let n = document.getElementById('_notif_box_');
-  if(!n){
-    n = document.createElement('div');
-    n.id = '_notif_box_';
-    n.style.position = 'fixed';
-    n.style.bottom = '10px';
-    n.style.left = '10px';
-    n.style.background = 'rgba(0,0,0,0.6)';
-    n.style.color = '#fff';
-    n.style.padding = '8px 12px';
-    n.style.borderRadius = '8px';
-    n.style.zIndex = 99999;
-    document.body.appendChild(n);
-  }
-  n.textContent = text;
-  n.style.display = 'block';
-  clearTimeout(n._t);
-  n._t = setTimeout(()=> n.style.display='none', 1800);
-}
-
-// === Virtual Keyboard ===
-function createVirtualKeyboard(){
-  const vk = document.getElementById("virtualKeyboard");
-  vk.innerHTML = '';
-  const keys = ['Q','W','E','R','T','Y','U','I','O','P',
-                'A','S','D','F','G','H','J','K','L',
-                'Z','X','C','V','B','N','M','←','⏎','␣'];
-  keys.forEach(k=>{
-    const btn=document.createElement('button');
-    btn.textContent=k; btn.onclick=()=>virtualKeyPress(k);
-    vk.appendChild(btn);
-  });
-}
-function virtualKeyPress(k){
-  const input=document.getElementById('searchInput');
-  if(!input)return;
-  if(k==='←') input.value=input.value.slice(0,-1);
-  else if(k==='⏎') doSearch();
-  else if(k==='␣') input.value+=' ';
-  else input.value+=k;
-}
-
-// === YouTube Search ===
-async function doSearch(){
-  const q=document.getElementById('searchInput').value.trim();
-  const resultsEl=document.getElementById('searchResults');
-  if(!q){resultsEl.innerHTML='<i>Masukkan kata kunci...</i>';return;}
-  resultsEl.innerHTML='<i>Mencari...</i>';
-  const searchQuery=q.toLowerCase().includes('karaoke')?q:q+' karaoke';
-  const url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(searchQuery)}&key=${API_KEY}`;
-  try{
-    const resp=await fetch(url);
-    const data=await resp.json();
-    if(!data.items){resultsEl.innerHTML='<i>Gagal mengambil hasil.</i>';return;}
-    resultsEl.innerHTML='';
-    selectedSearchIndex=-1;
-    data.items.forEach((item)=>{
-      const div=document.createElement('div');
-      div.className='song';
-      div.onclick=()=>addToPlaylist(item);
-      div.innerHTML=`<img class="thumb" src="${item.snippet.thumbnails?.medium?.url||''}">
-      <div><div class="title">${item.snippet.title}</div>
-      <div class="channel">${item.snippet.channelTitle}</div></div>`;
-      resultsEl.appendChild(div);
-    });
-  }catch(e){console.error(e);resultsEl.innerHTML='<i>Gagal konek ke YouTube API</i>';}
-}
-
-// === Playlist Logic ===
-function addToPlaylist(item){
-  let payload;
-  if(item && item.id && item.id.videoId){
-    payload={id:item.id.videoId,title:item.snippet?.title||'',channel:item.snippet?.channelTitle||'',thumb:item.snippet?.thumbnails?.medium?.url||''};
-  }else if(item&&item.id){payload=item;}else return;
-
-  if(isRemote){sendCmd('add',payload);showNotif('Mengirim lagu ke desktop...');return;}
-
-  playlist.push(payload);
-  renderPlaylist();
-  if(playlist.length===1){currentIndex=0;playSelected();}
-}
-function renderPlaylist(){
-  const el=document.getElementById('playlist');
-  el.innerHTML='';
-  playlist.forEach((song,i)=>{
-    const div=document.createElement('div');
-    div.className='song';
-    div.innerHTML=`<img class="thumb" src="${song.thumb}"><div><div class="title">${i+1}. ${song.title}</div><div class="channel">${song.channel}</div></div>`;
-    div.onclick=()=>{currentIndex=i;if(!isRemote)playSelected();};
-    el.appendChild(div);
-  });
-}
-function moveUpLocal(){if(currentIndex>0){[playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]];currentIndex--;renderPlaylist();}}
-function moveDownLocal(){if(currentIndex<playlist.length-1){[playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]];currentIndex++;renderPlaylist();}}
-function clearPlaylistLocal(){playlist=[];currentIndex=0;renderPlaylist();}
-
-// === Player Window (Desktop only) ===
-function openPlayer(){
-  if(isRemote)return;
-  if(!playerWindow||playerWindow.closed){
-    playerWindow=window.open("","playerWindow","width=900,height=600");
+// === Player window (desktop) ===
+function openPlayer() {
+  if (isRemote) return;
+  if (!playerWindow || playerWindow.closed) {
+    playerWindow = window.open("", "playerWindow", "width=900,height=600");
     playerWindow.document.write(`
-      <html><body style="margin:0;background:black;overflow:hidden;"><div id="player"></div>
+      <html><body style="margin:0;background:black;overflow:hidden;">
+      <div id="player"></div>
       <script>
         let player;
-        window.addEventListener('message',e=>{
-          if(e.data.type==='play'&&player)player.loadVideoById(e.data.id);
-          if(e.data.type==='pause'&&player)player.pauseVideo();
+        window.addEventListener('message', e=>{
+          if(e.data.type==='play' && player) player.loadVideoById(e.data.id);
+          if(e.data.type==='pause' && player) player.pauseVideo();
         });
         function onYouTubeIframeAPIReady(){
-          player=new YT.Player('player',{width:'100%',height:'100%',videoId:'',playerVars:{autoplay:1,controls:0}});
+          player = new YT.Player('player',{width:'100%',height:'100%',videoId:'',playerVars:{autoplay:1,controls:0}});
         }
       <\/script>
       <script src="https://www.youtube.com/iframe_api"><\/script>
@@ -270,26 +174,65 @@ function openPlayer(){
     `);
   }
 }
-function playSelected(){if(isRemote){sendCmd('play');return;}if(!playlist.length)return;if(!playerWindow||playerWindow.closed)openPlayer();const s=playlist[currentIndex];setTimeout(()=>{try{playerWindow.postMessage({type:'play',id:s.id},'*');}catch(e){}},700);}
-function pauseVideo(){if(isRemote){sendCmd('pause');return;}try{playerWindow?.postMessage({type:'pause'},'*');}catch(e){}}
-function nextSong(){if(isRemote){sendCmd('next');return;}if(currentIndex<playlist.length-1){currentIndex++;playSelected();}}
-function moveUp(){if(isRemote){sendCmd('up');return;}moveUpLocal();}
-function moveDown(){if(isRemote){sendCmd('down');return;}moveDownLocal();}
-function clearPlaylist(){if(isRemote){sendCmd('clear');return;}clearPlaylistLocal();}
 
-document.getElementById('searchBtn').onclick=doSearch;
-document.getElementById('openPlayerBtn').onclick=openPlayer;
-document.getElementById('playBtn').onclick=playSelected;
-document.getElementById('pauseBtn').onclick=pauseVideo;
-document.getElementById('nextBtn').onclick=nextSong;
-document.getElementById('moveUpBtn').onclick=moveUp;
-document.getElementById('moveDownBtn').onclick=moveDown;
-document.getElementById('clearBtn').onclick=clearPlaylist;
-createVirtualKeyboard();
-const searchInput=document.getElementById('searchInput'),vk=document.getElementById('virtualKeyboard');
-searchInput.addEventListener('focus',()=>vk.style.display='grid');
-document.addEventListener('click',e=>{if(!vk.contains(e.target)&&e.target!==searchInput)vk.style.display='none';});
-if(isRemote)try{document.getElementById('openPlayerBtn').style.display='none';showNotif('REMOTE MODE — kontrol desktop dari sini');}catch(e){}
+function playSelected(){
+  if(isRemote){ sendCmd("play"); return; }
+  if(!playlist.length) return;
+  if(!playerWindow || playerWindow.closed) openPlayer();
+  const s = playlist[currentIndex];
+  setTimeout(()=> playerWindow.postMessage({type:"play", id:s.id},"*"), 700);
+}
+function pauseVideo(){ if(isRemote){ sendCmd("pause"); return; } playerWindow?.postMessage({type:"pause"},"*"); }
+function nextSong(){ if(isRemote){ sendCmd("next"); return; } if(currentIndex<playlist.length-1){ currentIndex++; playSelected(); } }
+function moveUpLocal(){ if(currentIndex>0){ [playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]]; currentIndex--; renderPlaylist(); } }
+function moveDownLocal(){ if(currentIndex<playlist.length-1){ [playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]]; currentIndex++; renderPlaylist(); } }
+function clearPlaylistLocal(){ playlist=[]; currentIndex=0; renderPlaylist(); }
+
+// === Search YouTube ===
+async function doSearch(){
+  const q=document.getElementById("searchInput").value.trim();
+  const el=document.getElementById("searchResults");
+  if(!q){ el.innerHTML="<i>Masukkan kata kunci...</i>"; return; }
+  el.innerHTML="<i>Mencari...</i>";
+  const url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(q+" karaoke")}&key=${API_KEY}`;
+  const resp=await fetch(url); const data=await resp.json();
+  el.innerHTML="";
+  data.items.forEach(item=>{
+    const div=document.createElement("div");
+    div.className="song";
+    div.innerHTML=`<img class="thumb" src="${item.snippet.thumbnails.medium.url}"><div><div class="title">${item.snippet.title}</div><div class="channel">${item.snippet.channelTitle}</div></div>`;
+    div.onclick=()=>addToPlaylist(item);
+    el.appendChild(div);
+  });
+}
+
+function addToPlaylist(item){
+  const data={id:item.id.videoId,title:item.snippet.title,channel:item.snippet.channelTitle,thumb:item.snippet.thumbnails.medium.url};
+  if(isRemote){ sendCmd("add_"+data.id); return; }
+  playlist.push(data); renderPlaylist();
+}
+
+function renderPlaylist(){
+  const el=document.getElementById("playlist");
+  el.innerHTML="";
+  playlist.forEach((s,i)=>{
+    const div=document.createElement("div");
+    div.className="song";
+    div.innerHTML=`<img class="thumb" src="${s.thumb}"><div><div class="title">${i+1}. ${s.title}</div><div class="channel">${s.channel}</div></div>`;
+    div.onclick=()=>{ currentIndex=i; playSelected(); };
+    el.appendChild(div);
+  });
+}
+
+// === Bind events ===
+document.getElementById("searchBtn").onclick=doSearch;
+document.getElementById("openPlayerBtn").onclick=openPlayer;
+document.getElementById("playBtn").onclick=playSelected;
+document.getElementById("pauseBtn").onclick=pauseVideo;
+document.getElementById("nextBtn").onclick=nextSong;
+document.getElementById("moveUpBtn").onclick=()=>moveUpLocal();
+document.getElementById("moveDownBtn").onclick=()=>moveDownLocal();
+document.getElementById("clearBtn").onclick=()=>clearPlaylistLocal();
 </script>
 </body>
 </html>
