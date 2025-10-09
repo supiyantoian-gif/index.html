@@ -1,4 +1,5 @@
-<!DOCTYPE html>  <html lang="id">  
+<!DOCTYPE html>  
+<html lang="id">  
 <head>  
 <meta charset="utf-8" />  
 <meta name="viewport" content="width=device-width,initial-scale=1" />  
@@ -27,7 +28,8 @@
   @media (max-width:600px){ input{width:160px;} img.thumb{width:64px;} }  
 </style>  
 </head>  
-<body>  <header>  
+<body>  
+<header>  
   <div><strong>THE LINKS. KTV BATAM</strong></div>  
   <div id="searchBar">  
     <input id="searchInput" type="text" placeholder="Cari lagu..." />  
@@ -38,20 +40,31 @@
     </div>  
     <button id="openPlayerBtn">Buka Layar 2</button>  
   </div>  
-</header>  <div id="container">  
+</header>  
+<div id="container">  
   <div id="searchResults"></div>  
   <div id="playlist"></div>  
-</div>  <div id="controls">  
+</div>  
+<div id="controls">  
   <button id="playBtn">PLAY</button>  
   <button id="pauseBtn">PAUSE</button>  
   <button id="nextBtn">NEXT</button>  
   <button id="moveUpBtn">UP</button>  
   <button id="moveDownBtn">DOWN</button>  
   <button id="clearBtn">CLEAR</button>  
-</div>  <div id="virtualKeyboard"></div>  <div id="qr-container" style="display:none;">  
+</div>  
+<div id="virtualKeyboard"></div>  
+<div id="qr-container" style="display:none;">  
   <div id="qrcode"></div>  
   <p>Scan untuk kontrol dari HP</p>  
-</div>  <!-- Firebase v8 + QR lib -->  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>  <script>  
+</div>  
+
+<!-- Firebase v8 + QR lib -->  
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>  
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>  
+
+<script>  
 /* ---------- detection & config ---------- */  
 const isRemote = (new URLSearchParams(window.location.search).get('remote') === 'true');  
   
@@ -272,7 +285,49 @@ function openPlayer(){
     );  
   }  
 }  
-  
+
+/* --- AUTO-PLAY PATCH: listener + safe override of openPlayer --- */
+window.addEventListener("message", function(e){
+    if(e.data && e.data.type === "autoPlay"){
+        if(playlist && playlist.length > 0){
+            playSelected();
+        }
+    }
+});
+
+// Safe override: only override if openPlayer already exists; otherwise attach to load
+if(typeof openPlayer === 'function'){
+    const originalOpenPlayer = openPlayer;
+    openPlayer = function(){
+        originalOpenPlayer();
+        try{
+            if(playerWindow && !playerWindow.closed){
+                playerWindow.postMessage({type: "autoPlay"}, "*");
+            }
+        }catch(err){
+            console.warn('autoPlay postMessage failed', err);
+        }
+    };
+} else {
+    // If for some reason openPlayer is not available yet, wait until load
+    window.addEventListener('load', function(){
+        if(typeof openPlayer === 'function'){
+            const originalOpenPlayer = openPlayer;
+            openPlayer = function(){
+                originalOpenPlayer();
+                try{
+                    if(playerWindow && !playerWindow.closed){
+                        playerWindow.postMessage({type: "autoPlay"}, "*");
+                    }
+                }catch(err){
+                    console.warn('autoPlay postMessage failed', err);
+                }
+            };
+        }
+    });
+}
+/* --- END AUTO-PLAY PATCH --- */
+
 function playSelected(){  
   if(isRemote){ sendCmd('play'); return; }  
   if(!playlist.length) return;  
@@ -316,6 +371,6 @@ document.addEventListener('click', e => { if(!vk.contains(e.target) && e.target 
 if(isRemote){ try{ document.getElementById('openPlayerBtn').style.display = 'none'; }catch(e){} }  
   
 /* debug tip: open console on desktop (F12) and on mobile (remote debug) to see logs */  
-</script>  </body>  
+</script>  
+</body>  
 </html>
-
