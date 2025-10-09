@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>THE LINKS. KTV BATAM — Mirror UI (Identical Mobile/Desktop)</title>
+<title>THE LINKS. KTV BATAM — Final (AutoRemove Played + Next Behavior)</title>
 <style>
   *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
   :root{
@@ -12,7 +12,7 @@
     --muted:#cfcfcf;
   }
   html,body{height:100%;margin:0;background:linear-gradient(135deg,var(--bg1),var(--bg2),var(--bg3));color:#fff;}
-  body{overflow-x:auto; /* allow horizontal scroll so two-column remains identical on small screens */}
+  body{overflow-x:auto;}
   header{padding:12px 18px;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:space-between;}
   #searchBar{display:flex;gap:10px;align-items:center;}
   input{padding:10px;border:none;border-radius:6px;width:320px;background:rgba(255,255,255,0.02);color:#fff;}
@@ -20,7 +20,6 @@
   button{background:var(--accent);border:none;color:#fff;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all .12s;font-weight:700;}
   button:hover{background:var(--accent-hover);}
   #container{display:flex;gap:12px;height:calc(100vh - 170px);padding:12px;align-items:stretch;}
-  /* force two equal panels, keep min-width so mobile still shows same layout with horizontal scroll */
   #leftPanel, #rightPanel{flex:0 0 50%;min-width:420px;display:flex;flex-direction:column;gap:12px;height:100%;}
   #searchResults,#playlist{overflow:auto;padding:12px;background:var(--panel);border-radius:10px;height:100%;}
   .song{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.02);margin-bottom:8px;padding:8px;border-radius:8px;cursor:pointer;}
@@ -31,11 +30,12 @@
   #controls{display:flex;gap:8px;justify-content:center;padding:10px;background:rgba(0,0,0,0.35);position:fixed;left:50%;transform:translateX(-50%);bottom:12px;border-radius:10px;z-index:999;}
   #virtualKeyboard{display:none;grid-template-columns:repeat(10,1fr);gap:6px;padding:10px;background:rgba(0,0,0,0.55);position:fixed;left:50%;transform:translateX(-50%);bottom:72px;border-radius:10px;z-index:998;}
   #virtualKeyboard button{background:#222;border:1px solid #444;color:#FFD700;font-weight:700;padding:6px;border-radius:8px;}
+  #navButtons{display:flex;gap:6px;}
   #qr-container{position:fixed;bottom:12px;right:12px;background:#0b0b0b;padding:10px;border-radius:10px;text-align:center;z-index:9999;box-shadow:0 8px 26px rgba(0,0,0,0.6);}
   #qr-container p{color:#fff;font-size:12px;margin:6px 0 0;}
   .small-ctrl{display:flex;gap:6px;margin-left:auto;}
   .small-ctrl button{padding:4px 6px;border-radius:6px;background:#222;border:none;color:#fff;cursor:pointer}
-  @media (max-width:420px){ /* nothing hides: keep identical UI; user scrolls horizontally if needed */ }
+  @media (max-width:420px){ /* keep identical UI; user can scroll horizontally */ }
 </style>
 </head>
 <body>
@@ -67,7 +67,7 @@
   <button id="nextBtn">NEXT</button>
   <button id="moveUpBtn">UP</button>
   <button id="moveDownBtn">DOWN</button>
-  <button id="clearBtn">CLEAR</button>
+  <!-- CLEAR intentionally removed -->
 </div>
 
 <div id="virtualKeyboard" role="application" aria-hidden="true"></div>
@@ -102,7 +102,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
 
-/* ========== STATE ========== */
+/* ========== STATE ========= */
 let playlist = [];
 let playlistMap = {};
 let currentIndex = 0;
@@ -110,7 +110,7 @@ let playerWindow = null;
 let selectedSearchIndex = -1;
 let hasAutoPlayed = false;
 
-/* ========== UTIL ========= */
+/* ========== HELPERS ========= */
 function showNotif(text){
   let n=document.getElementById('_notif_box_');
   if(!n){ n=document.createElement('div'); n.id='_notif_box_';
@@ -124,19 +124,19 @@ function showNotif(text){
 const playlistRef = db.ref('playlist');
 const searchRef = db.ref('searchRequests');
 const commandsRef = db.ref('commands');
+const currentSongRef = db.ref('currentSong'); // current song sync
 
 /* ========== SYNC: playlist, search, commands ========= */
-/* playlist sync */
 playlistRef.off();
 playlistRef.on('child_added', snap=>{
   const key = snap.key; const v = snap.val();
   if(!v) return;
   if(playlistMap[key]) return;
   const item = { key, id:v.id, title:v.title, channel:v.channel, thumb:v.thumb||'', order:v.order||0 };
-  playlistMap[key] = item; playlist.push(item); sortPlaylistAndRender();
+  playlistMap[key]=item; playlist.push(item); sortPlaylistAndRender();
 });
 playlistRef.on('child_changed', snap=>{
-  const key=snap.key; const v=snap.val(); if(!v || !playlistMap[key]) return;
+  const key=snap.key; const v=snap.val(); if(!v||!playlistMap[key]) return;
   playlistMap[key].id = v.id; playlistMap[key].title = v.title; playlistMap[key].channel = v.channel; playlistMap[key].thumb = v.thumb||'';
   playlistMap[key].order = v.order || playlistMap[key].order; sortPlaylistAndRender();
 });
@@ -144,8 +144,16 @@ playlistRef.on('child_removed', snap=>{
   const key=snap.key; if(!playlistMap[key]) return;
   playlist = playlist.filter(p=>p.key!==key); delete playlistMap[key]; sortPlaylistAndRender();
 });
-function sortPlaylistAndRender(){ playlist.sort((a,b)=> (b.order||0) - (a.order||0)); renderPlaylist(); }
-function pushSongToPlaylist(payload){ const node = {...payload, order: Date.now(), clientId: CLIENT_ID}; return playlistRef.push(node).catch(e=>console.error('push song fail',e)); }
+
+function sortPlaylistAndRender(){
+  // earliest (first chosen) at top, newest at bottom
+  playlist.sort((a,b)=> (a.order||0) - (b.order||0));
+  renderPlaylist();
+}
+function pushSongToPlaylist(payload){
+  const node = {...payload, order: Date.now(), clientId: CLIENT_ID};
+  return playlistRef.push(node).catch(e=>console.error('push song fail',e));
+}
 
 /* search sync */
 searchRef.off();
@@ -212,13 +220,20 @@ function localAddToPlaylist(item){
   pushSongToPlaylist(payload).then(()=> showNotif('Added to playlist (synced)')).catch(e=>console.error(e));
 }
 
-/* ========== RENDER PLAYLIST ========== */
+/* ========== RENDER PLAYLIST (with highlight) ========= */
 function renderPlaylist(){
   const el = document.getElementById('playlist'); if(!el) return; el.innerHTML = '';
   playlist.forEach((s,i)=>{
     const div = document.createElement('div'); div.className='song';
+    // highlight if this is currentIndex
+    if(i === currentIndex){
+      div.style.background = 'rgba(0,255,128,0.20)';
+      div.style.border = '1px solid rgba(0,255,128,0.45)';
+    }
     div.innerHTML = `<img class="thumb" src="${s.thumb||''}"><div style="flex:1"><div class="title">${i+1}. ${s.title}</div><div class="channel">${s.channel}</div></div>`;
     div.onclick = ()=> { currentIndex = i; if(!isRemote) playSelected(); };
+
+    // small control buttons
     const ctrl = document.createElement('div'); ctrl.className='small-ctrl';
     const up = document.createElement('button'); up.textContent='↑'; up.onclick = (ev)=>{ ev.stopPropagation(); moveUpDB(i); };
     const down = document.createElement('button'); down.textContent='↓'; down.onclick = (ev)=>{ ev.stopPropagation(); moveDownDB(i); };
@@ -228,9 +243,14 @@ function renderPlaylist(){
     div.appendChild(ctrl);
     el.appendChild(div);
   });
+
+  // keep top visible
+  try{
+    if(currentIndex === 0) el.scrollTop = 0;
+  }catch(e){}
 }
 
-/* ========== DB reorder/remove/clear ========== */
+/* ========== DB reorder/remove ========== */
 function swapOrdersInDB(keyA,keyB){
   const a = playlistMap[keyA], b = playlistMap[keyB]; if(!a||!b) return;
   const updates = {}; updates[`${keyA}/order`] = b.order || 0; updates[`${keyB}/order`] = a.order || 0;
@@ -239,16 +259,55 @@ function swapOrdersInDB(keyA,keyB){
 function moveUpDB(index){ if(index<=0) return; const item=playlist[index], prev=playlist[index-1]; if(item && prev) swapOrdersInDB(item.key, prev.key); }
 function moveDownDB(index){ if(index>=playlist.length-1) return; const item=playlist[index], next=playlist[index+1]; if(item && next) swapOrdersInDB(item.key, next.key); }
 function removeFromDB(key){ return playlistRef.child(key).remove().catch(e=>console.error(e)); }
-function clearPlaylistDB(){ return playlistRef.remove().catch(e=>console.error(e)); }
 
-/* ========== OPEN PLAYER (desktop only) ========== */
+/* ========== REMOVE CURRENT SONG FROM DB & PLAY NEXT (used for ended and Next button) ========== */
+function removeCurrentFirstAndPlayNext(){
+  if(!playlist || playlist.length === 0) return;
+
+  // current first (position #1)
+  const currentFirst = playlist[0];
+  const nextItem = playlist[1] || null; // may be undefined
+  if(!currentFirst) return;
+
+  const keyToRemove = currentFirst.key;
+  // remove first
+  playlistRef.child(keyToRemove).remove().then(()=>{
+    // clear currentSongRef
+    currentSongRef.remove().catch(()=>{});
+    // if there is a next item, set it to currentSongRef and play it
+    if(nextItem){
+      // small delay to let listeners update playlist array
+      setTimeout(()=>{
+        try{
+          currentSongRef.set({ key: nextItem.key, title: nextItem.title || '', ts: Date.now() }).catch(()=>{});
+          currentIndex = 0;
+          if(isRemote) sendCommand('play');
+          else {
+            if(!playerWindow || playerWindow.closed) openPlayer();
+            // directly post message to player
+            try{ playerWindow.postMessage({ type: 'play', id: nextItem.id }, '*'); }catch(e){ console.error(e); playSelected(); }
+          }
+        }catch(err){ console.error('play next after remove error', err); }
+      }, 300);
+    } else {
+      // nothing left after removal
+      currentIndex = 0;
+    }
+  }).catch(err=>{
+    console.error('Failed removing current first', err);
+  });
+}
+
+/* ========== OPEN PLAYER (desktop only, player posts 'ended' on finish) ========== */
 function openPlayer(){
   if(isRemote) return;
   if(!playerWindow || playerWindow.closed){
     playerWindow = window.open('','playerWindow','width=900,height=600');
     playerWindow.document.write(
       '<!doctype html><html><head><meta charset="utf-8"><title>Player</title></head><body style="margin:0;background:black;overflow:hidden;"><div id="player"></div>' +
-      '<script>let player;window.addEventListener("message",function(e){try{if(e.data&&e.data.type==="play"&&player)player.loadVideoById(e.data.id);if(e.data&&e.data.type==="pause"&&player)player.pauseVideo();}catch(err){}});function onYouTubeIframeAPIReady(){player=new YT.Player("player",{width:"100%",height:"100%",videoId:"",playerVars:{autoplay:1,controls:0},events:{onReady:function(){try{window.opener.postMessage({type:"autoPlay"},"*");}catch(e){} }}});}<\/script>' +
+      '<script>let player;function onPlayerStateChange(e){try{if(e.data===YT.PlayerState.ENDED){window.opener.postMessage({type:\"ended\"},\"*\");}}catch(e){} }' +
+      'window.addEventListener("message",function(e){try{if(e.data&&e.data.type===\"play\"&&player)player.loadVideoById(e.data.id);if(e.data&&e.data.type===\"pause\"&&player)player.pauseVideo();}catch(err){}});' +
+      'function onYouTubeIframeAPIReady(){player=new YT.Player("player",{width:"100%",height:"100%",videoId:"",playerVars:{autoplay:1,controls:0},events:{onReady:function(){try{window.opener.postMessage({type:\"autoPlay\"},\"*\");}catch(e){}},onStateChange:onPlayerStateChange}});}<\/script>' +
       '<script src="https://www.youtube.com/iframe_api"><\/script></body></html>'
     );
   } else {
@@ -266,10 +325,10 @@ if(!isRemote){
     switch(cmd.action){
       case 'play': if(!playerWindow||playerWindow.closed) openPlayer(); setTimeout(()=>playSelected(),300); break;
       case 'pause': pauseVideo(); break;
-      case 'next': nextSong(); break;
+      case 'next': removeCurrentFirstAndPlayNext(); break;
       case 'up': moveUpLocal(); break;
       case 'down': moveDownLocal(); break;
-      case 'clear': clearPlaylistLocal(); break;
+      case 'clear': /* intentionally ignored */ break;
       case 'add': if(cmd.payload && cmd.payload.id) pushSongToPlaylist(cmd.payload); break;
       default: console.log('Unknown cmd',cmd);
     }
@@ -278,19 +337,54 @@ if(!isRemote){
 }
 
 /* local wrappers */
-function playSelected(){ if(isRemote){ sendCommand('play'); return; } if(!playlist.length) return; if(!playerWindow||playerWindow.closed) openPlayer(); const s = playlist[currentIndex]; setTimeout(()=>{ try{ playerWindow.postMessage({type:'play',id:s.id},'*'); }catch(e){console.error(e);} },700); }
+function playSelected(){
+  if(isRemote){ sendCommand('play'); return; }
+  if(!playlist.length) return;
+  if(!playerWindow || playerWindow.closed) openPlayer();
+  const s = playlist[currentIndex];
+  setTimeout(()=>{
+    try{
+      playerWindow.postMessage({type:'play', id: s.id}, '*');
+      // sync current song to Firebase so remotes highlight it
+      if(s && s.key) currentSongRef.set({ key: s.key, title: s.title || '', ts: Date.now() }).catch(()=>{});
+    }catch(e){ console.error(e); }
+  },700);
+}
 function pauseVideo(){ if(isRemote){ sendCommand('pause'); return; } try{ playerWindow?.postMessage({type:'pause'},'*'); }catch(e){} }
-function nextSong(){ if(isRemote){ sendCommand('next'); return; } if(currentIndex < playlist.length-1){ currentIndex++; playSelected(); } }
+function nextSong(){ 
+  if(isRemote){ sendCommand('next'); return; } 
+  // New behavior: remove current #1 and make #2 the new #1 and play it
+  removeCurrentFirstAndPlayNext();
+}
 function moveUpLocal(){ if(isRemote){ sendCommand('up'); return; } if(currentIndex>0){ const item=playlist[currentIndex], prev=playlist[currentIndex-1]; if(item && prev) swapOrdersInDB(item.key, prev.key); } }
 function moveDownLocal(){ if(isRemote){ sendCommand('down'); return; } if(currentIndex<playlist.length-1){ const item=playlist[currentIndex], next=playlist[currentIndex+1]; if(item && next) swapOrdersInDB(item.key, next.key); } }
-function clearPlaylistLocal(){ if(isRemote){ sendCommand('clear'); return; } clearPlaylistDB(); }
 
-/* ========== AutoPlayOnce ========= */
+/* ========== Handle 'ended' messages from playerWindow ========== */
 window.addEventListener('message', function(e){
-  if(e.data && e.data.type === 'autoPlay' && !hasAutoPlayed){
+  if(!e.data || !e.data.type) return;
+  if(e.data.type === 'autoPlay' && !hasAutoPlayed){
     if(playlist.length > 0){
       currentIndex = 0; playSelected(); hasAutoPlayed = true;
     }
+  } else if(e.data.type === 'ended'){
+    // when the player reports that video ended, remove current first and auto-play next
+    removeCurrentFirstAndPlayNext();
+  }
+});
+
+/* ========== currentSongRef listener: sync highlight across clients ========== */
+currentSongRef.off();
+currentSongRef.on('value', snap=>{
+  const data = snap.val();
+  if(!data) {
+    renderPlaylist();
+    return;
+  }
+  const idx = playlist.findIndex(p => p.key === data.key);
+  if(idx >= 0){
+    currentIndex = idx;
+    renderPlaylist();
+    const el = document.getElementById('playlist'); if(el) el.scrollTop = 0;
   }
 });
 
@@ -301,11 +395,7 @@ function moveSearchDown(){ const items=document.querySelectorAll('#searchResults
 function addSelectedSearchToPlaylist(){ const items=document.querySelectorAll('#searchResults .song'); if(selectedSearchIndex>=0 && selectedSearchIndex<items.length) items[selectedSearchIndex].click(); }
 
 /* ========== VIRTUAL KEYBOARD ========== */
-function createVirtualKeyboard(){
-  const vk=document.getElementById('virtualKeyboard'); if(!vk) return; vk.innerHTML='';
-  const keys=['Q','W','E','R','T','Y','U','I','O','P','A','S','D','F','G','H','J','K','L','Z','X','C','V','B','N','M','←','⏎','␣'];
-  keys.forEach(k=>{ const b=document.createElement('button'); b.textContent=k; b.onclick=()=>virtualKeyPress(k); vk.appendChild(b); });
-}
+function createVirtualKeyboard(){ const vk=document.getElementById('virtualKeyboard'); if(!vk) return; vk.innerHTML=''; const keys=['Q','W','E','R','T','Y','U','I','O','P','A','S','D','F','G','H','J','K','L','Z','X','C','V','B','N','M','←','⏎','␣']; keys.forEach(k=>{ const b=document.createElement('button'); b.textContent=k; b.onclick=()=>virtualKeyPress(k); vk.appendChild(b); }); }
 function virtualKeyPress(k){ const input=document.getElementById('searchInput'); if(!input) return; if(k==='←') input.value=input.value.slice(0,-1); else if(k==='⏎') doSearch(); else if(k==='␣') input.value+=' '; else input.value+=k; }
 
 /* ========== BINDINGS (after DOM ready) ========== */
@@ -322,9 +412,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
   const btnNext = get('nextBtn'); if(btnNext) btnNext.addEventListener('click', nextSong);
   const btnMoveUp = get('moveUpBtn'); if(btnMoveUp) btnMoveUp.addEventListener('click', ()=>{ if(isRemote) sendCommand('up'); else moveUpLocal(); });
   const btnMoveDown = get('moveDownBtn'); if(btnMoveDown) btnMoveDown.addEventListener('click', ()=>{ if(isRemote) sendCommand('down'); else moveDownLocal(); });
-  const btnClear = get('clearBtn'); if(btnClear) btnClear.addEventListener('click', ()=>{ if(isRemote) sendCommand('clear'); else clearPlaylistLocal(); });
   const upBtn = get('upBtn'); if(upBtn) upBtn.addEventListener('click', moveSearchUp);
   const downBtn = get('downBtn'); if(downBtn) downBtn.addEventListener('click', moveSearchDown);
+
+  // remove CLEAR button if present (safety)
+  const clearBtn = get('clearBtn'); if(clearBtn) clearBtn.remove();
 
   createVirtualKeyboard();
   const sInput = get('searchInput');
