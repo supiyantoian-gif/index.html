@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>THE LINKS. KTV BATAM - Remote Fixed + Auto Play</title>
+<title>THE LINKS. KTV BATAM - Remote Fixed</title>
 <style>
   *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
   body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;}
@@ -59,11 +59,14 @@
   <p>Scan untuk kontrol dari HP</p>
 </div>
 
+<!-- Firebase & QR library -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <script>
 const isRemote = (new URLSearchParams(window.location.search).get('remote') === 'true');
+
 const firebaseConfig = {
   apiKey: "AIzaSyBEx2cWIr5e1vZamz65kq8cO1JQ0cUAzuQ",
   authDomain: "karaoke-control.firebaseapp.com",
@@ -76,7 +79,9 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
 const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
+
 let playlist = [];
 let currentIndex = 0;
 let playerWindow = null;
@@ -111,9 +116,13 @@ if(!isRemote){
   db.ref('commands').on('child_added', snapshot => {
     const cmd = snapshot.val();
     const key = snapshot.key;
-    if(!cmd || !cmd.action){ if(key) snapshot.ref.remove().catch(()=>{}); return; }
+    if(!cmd || !cmd.action){
+      if(key) snapshot.ref.remove().catch(()=>{});
+      return;
+    }
+
     switch(cmd.action){
-      case 'play': if(!playerWindow || playerWindow.closed) openPlayer(); setTimeout(()=> playSelected(), 300); break;
+      case 'play': if(!playerWindow || playerWindow.closed) openPlayer(); setTimeout(()=> playSelected(),300); break;
       case 'pause': pauseVideo(); break;
       case 'next': nextSong(); break;
       case 'up': moveUpLocal(); break;
@@ -121,7 +130,12 @@ if(!isRemote){
       case 'clear': clearPlaylistLocal(); break;
       case 'add':
         if(cmd.payload && cmd.payload.id){
-          playlist.push({ id:cmd.payload.id, title:cmd.payload.title || '', channel:cmd.payload.channel || '', thumb:cmd.payload.thumb || '' });
+          playlist.push({
+            id: cmd.payload.id,
+            title: cmd.payload.title || 'Unknown',
+            channel: cmd.payload.channel || '',
+            thumb: cmd.payload.thumb || ''
+          });
           renderPlaylist();
           showNotif('Added from remote');
           if(playlist.length === 1){ currentIndex = 0; setTimeout(()=> playSelected(), 300); }
@@ -137,7 +151,9 @@ window.addEventListener('load', ()=>{
   if(!isRemote){
     const qrBox = document.getElementById('qr-container');
     qrBox.style.display = 'block';
-    new QRCode(document.getElementById('qrcode'), { text: CONTROL_URL, width:120, height:120, colorDark:'#00ffcc', colorLight:'#111', correctLevel: QRCode.CorrectLevel.H });
+    try {
+      new QRCode(document.getElementById('qrcode'), { text: CONTROL_URL, width:120, height:120, colorDark:'#00ffcc', colorLight:'#111', correctLevel: QRCode.CorrectLevel.H });
+    } catch(e){}
   } else {
     document.getElementById('qr-container').style.display = 'none';
     showNotif('REMOTE MODE — kontrol desktop dari sini');
@@ -174,25 +190,32 @@ async function doSearch(){
     const data = await resp.json();
     resultsEl.innerHTML = '';
     selectedSearchIndex = -1;
-    (data.items||[]).forEach(item=>{
-      const thumb = item.snippet.thumbnails?.medium?.url || '';
+    const items = data.items || [];
+    items.forEach(item=>{
+      const thumb = (item.snippet && item.snippet.thumbnails && item.snippet.thumbnails.medium && item.snippet.thumbnails.medium.url) ? item.snippet.thumbnails.medium.url : '';
       const div = document.createElement('div');
       div.className = 'song';
       div.onclick = ()=> addToPlaylist(item);
       div.innerHTML = `<img class="thumb" src="${thumb}"><div><div class="title">${item.snippet.title}</div><div class="channel">${item.snippet.channelTitle}</div></div>`;
       resultsEl.appendChild(div);
     });
-  } catch(e){ resultsEl.innerHTML = '<i>Gagal konek ke YouTube API</i>'; }
+  } catch(e){
+    resultsEl.innerHTML = '<i>Gagal konek ke YouTube API</i>';
+  }
 }
 
 function addToPlaylist(item){
   let payload = null;
-  if(item.id && item.id.videoId){
-    payload = { id:item.id.videoId, title:item.snippet.title, channel:item.snippet.channelTitle, thumb:item.snippet.thumbnails?.medium?.url||'' };
-  } else if(item.id){ payload = item; } else return;
-
-  if(isRemote){ sendCmd('add', payload); showNotif('Mengirim lagu ke desktop...'); return; }
-
+  if(item && item.id && item.id.videoId){
+    payload = { id: item.id.videoId, title: item.snippet.title, channel: item.snippet.channelTitle, thumb: (item.snippet && item.snippet.thumbnails && item.snippet.thumbnails.medium && item.snippet.thumbnails.medium.url) ? item.snippet.thumbnails.medium.url : '' };
+  } else if(item && item.id){
+    payload = item;
+  } else return;
+  if(isRemote){
+    sendCmd('add', payload);
+    showNotif('Mengirim lagu ke desktop...');
+    return;
+  }
   playlist.push(payload);
   renderPlaylist();
   if(playlist.length === 1){ currentIndex = 0; playSelected(); }
@@ -204,7 +227,7 @@ function renderPlaylist(){
   playlist.forEach((s,i)=>{
     const div = document.createElement('div');
     div.className = 'song';
-    div.innerHTML = `<img class="thumb" src="${s.thumb||''}"><div><div class="title">${i+1}. ${s.title}</div><div class="channel">${s.channel}</div></div>`;
+    div.innerHTML = `<img class="thumb" src="${s.thumb || ''}"><div><div class="title">${i+1}. ${s.title}</div><div class="channel">${s.channel}</div></div>`;
     div.onclick = ()=> { currentIndex = i; if(!isRemote) playSelected(); };
     el.appendChild(div);
   });
@@ -218,31 +241,10 @@ function openPlayer(){
   if(isRemote) return;
   if(!playerWindow || playerWindow.closed){
     playerWindow = window.open('','playerWindow','width=900,height=600');
-    playerWindow.document.write(`
-      <!doctype html><html><head><meta charset="utf-8"><title>Player</title></head>
-      <body style="margin:0;background:black;overflow:hidden;">
-      <div id="player"></div>
-      <script>
-        let player;
-        function onYouTubeIframeAPIReady(){
-          player = new YT.Player("player",{width:"100%",height:"100%",videoId:"",playerVars:{autoplay:1,controls:0},
-            events:{
-              onReady:()=>{try{window.opener.postMessage("ready","*");}catch(e){}},
-              onStateChange:function(e){
-                if(e.data===YT.PlayerState.ENDED){try{window.opener.postMessage("songEnded","*");}catch(e){}}
-              }
-            }
-          });
-        }
-        window.addEventListener("message",e=>{
-          try{
-            if(e.data?.type==="play"&&player)player.loadVideoById(e.data.id);
-            if(e.data?.type==="pause"&&player)player.pauseVideo();
-          }catch(err){}
-        });
-      <\/script><script src="https://www.youtube.com/iframe_api"><\/script>
-      </body></html>
-    `);
+    playerWindow.document.write(
+      '<!doctype html><html><head><meta charset="utf-8"><title>Player</title></head><body style="margin:0;background:black;overflow:hidden;"><div id="player"></div>' +
+      '<script>let player;function onYouTubeIframeAPIReady(){player=new YT.Player("player",{width:"100%",height:"100%",videoId:"",playerVars:{autoplay:1,controls:0},events:{onReady:function(){try{window.opener.postMessage("ready","*");}catch(e){}},onStateChange:function(e){if(e.data===YT.PlayerState.ENDED){try{window.opener.postMessage("songEnded","*");}catch(e){}}}}});}window.addEventListener("message",function(e){try{if(e.data && e.data.type==="play" && player)player.loadVideoById(e.data.id);if(e.data && e.data.type==="pause" && player)player.pauseVideo();}catch(err){}});<\/script><script src="https://www.youtube.com/iframe_api"><\/script></body></html>'
+    );
   }
 }
 
@@ -251,14 +253,43 @@ function playSelected(){
   if(!playlist.length) return;
   if(!playerWindow || playerWindow.closed) openPlayer();
   const s = playlist[currentIndex];
-  setTimeout(()=>{ try{ playerWindow.postMessage({type:'play',id:s.id},'*'); }catch(e){} },700);
+  setTimeout(()=> {
+    try { playerWindow.postMessage({ type: 'play', id: s.id }, '*'); }
+    catch(e){}
+  }, 700);
 }
 
-function pauseVideo(){ if(isRemote){ sendCmd('pause'); return; } try{ playerWindow?.postMessage({type:'pause'},'*'); }catch(e){} }
+function pauseVideo(){ if(isRemote){ sendCmd('pause'); return; } try{ playerWindow?.postMessage({ type: 'pause' }, '*'); } catch(e){} }
 function nextSong(){ if(isRemote){ sendCmd('next'); return; } if(currentIndex < playlist.length - 1){ currentIndex++; playSelected(); } }
 function moveUp(){ if(isRemote){ sendCmd('up'); return; } moveUpLocal(); }
 function moveDown(){ if(isRemote){ sendCmd('down'); return; } moveDownLocal(); }
 function clearPlaylist(){ if(isRemote){ sendCmd('clear'); return; } clearPlaylistLocal(); }
+
+function highlightSearchResult(){ const items=document.querySelectorAll('#searchResults .song'); items.forEach((div,i)=> div.style.background = i===selectedSearchIndex ? 'rgba(29,185,84,0.4)' : 'rgba(255,255,255,0.05)'); }
+function moveSearchUp(){ const items=document.querySelectorAll('#searchResults .song'); if(items.length===0) return; selectedSearchIndex = selectedSearchIndex<=0 ? items.length-1 : selectedSearchIndex-1; highlightSearchResult(); }
+function moveSearchDown(){ const items=document.querySelectorAll('#searchResults .song'); if(items.length===0) return; selectedSearchIndex = selectedSearchIndex>=items.length-1 ? 0 : selectedSearchIndex+1; highlightSearchResult(); }
+function addSelectedSearchToPlaylist(){ const items=document.querySelectorAll('#searchResults .song'); if(selectedSearchIndex>=0 && selectedSearchIndex<items.length) items[selectedSearchIndex].click(); }
+
+function autoNext(){
+  if(currentIndex < playlist.length - 1){
+    currentIndex++;
+    playSelected();
+  } else {
+    console.log("✅ Playlist selesai.");
+  }
+}
+
+window.addEventListener("message", (e) => {
+  if(e.data === "songEnded"){
+    autoNext();
+  }
+});
+
+createVirtualKeyboard();
+const searchInput = document.getElementById('searchInput');
+const vk = document.getElementById('virtualKeyboard');
+searchInput.addEventListener('focus', ()=> vk.style.display = 'grid');
+document.addEventListener('click', e => { if(!vk.contains(e.target) && e.target !== searchInput) vk.style.display = 'none'; });
 
 document.getElementById('searchBtn').onclick = doSearch;
 document.getElementById('openPlayerBtn').onclick = openPlayer;
@@ -268,16 +299,10 @@ document.getElementById('nextBtn').onclick = nextSong;
 document.getElementById('moveUpBtn').onclick = moveUp;
 document.getElementById('moveDownBtn').onclick = moveDown;
 document.getElementById('clearBtn').onclick = clearPlaylist;
+document.getElementById('upBtn').onclick = moveSearchUp;
+document.getElementById('downBtn').onclick = moveSearchDown;
 
-createVirtualKeyboard();
-const searchInput = document.getElementById('searchInput');
-const vk = document.getElementById('virtualKeyboard');
-searchInput.addEventListener('focus', ()=> vk.style.display = 'grid');
-document.addEventListener('click', e => { if(!vk.contains(e.target) && e.target !== searchInput) vk.style.display = 'none'; });
-
-window.addEventListener("message", function(e){
-  if(e.data === "songEnded"){ nextSong(); }
-});
+if(isRemote){ try{ document.getElementById('openPlayerBtn').style.display = 'none'; }catch(e){} }
 </script>
 </body>
 </html>
