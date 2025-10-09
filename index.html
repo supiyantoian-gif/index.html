@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>THE LINKS. KTV BATAM — Final (AutoRemove Played + Next Behavior)</title>
+<title>THE LINKS. KTV BATAM — Final (Mirror UI + Realtime)</title>
 <style>
   *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
   :root{
@@ -12,7 +12,7 @@
     --muted:#cfcfcf;
   }
   html,body{height:100%;margin:0;background:linear-gradient(135deg,var(--bg1),var(--bg2),var(--bg3));color:#fff;}
-  body{overflow-x:auto;}
+  body{overflow-x:auto;} /* allow horizontal scroll so two-column remains identical on small screens */
   header{padding:12px 18px;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:space-between;}
   #searchBar{display:flex;gap:10px;align-items:center;}
   input{padding:10px;border:none;border-radius:6px;width:320px;background:rgba(255,255,255,0.02);color:#fff;}
@@ -35,7 +35,7 @@
   #qr-container p{color:#fff;font-size:12px;margin:6px 0 0;}
   .small-ctrl{display:flex;gap:6px;margin-left:auto;}
   .small-ctrl button{padding:4px 6px;border-radius:6px;background:#222;border:none;color:#fff;cursor:pointer}
-  @media (max-width:420px){ /* keep identical UI; user can scroll horizontally */ }
+  @media (max-width:420px){ /* we intentionally keep identical UI; user can scroll horizontally */ }
 </style>
 </head>
 <body>
@@ -124,9 +124,10 @@ function showNotif(text){
 const playlistRef = db.ref('playlist');
 const searchRef = db.ref('searchRequests');
 const commandsRef = db.ref('commands');
-const currentSongRef = db.ref('currentSong'); // current song sync
+const currentSongRef = db.ref('currentSong'); // <- current song sync
 
 /* ========== SYNC: playlist, search, commands ========= */
+/* playlist sync */
 playlistRef.off();
 playlistRef.on('child_added', snap=>{
   const key = snap.key; const v = snap.val();
@@ -146,7 +147,7 @@ playlistRef.on('child_removed', snap=>{
 });
 
 function sortPlaylistAndRender(){
-  // earliest (first chosen) at top, newest at bottom
+  // ascending: earliest (first chosen) at top, newest at bottom
   playlist.sort((a,b)=> (a.order||0) - (b.order||0));
   renderPlaylist();
 }
@@ -244,13 +245,13 @@ function renderPlaylist(){
     el.appendChild(div);
   });
 
-  // keep top visible
+  // keep top visible if current is top
   try{
     if(currentIndex === 0) el.scrollTop = 0;
   }catch(e){}
 }
 
-/* ========== DB reorder/remove ========== */
+/* ========== DB reorder/remove/clear ========== */
 function swapOrdersInDB(keyA,keyB){
   const a = playlistMap[keyA], b = playlistMap[keyB]; if(!a||!b) return;
   const updates = {}; updates[`${keyA}/order`] = b.order || 0; updates[`${keyB}/order`] = a.order || 0;
@@ -292,6 +293,7 @@ function removeCurrentFirstAndPlayNext(){
     } else {
       // nothing left after removal
       currentIndex = 0;
+      renderPlaylist();
     }
   }).catch(err=>{
     console.error('Failed removing current first', err);
@@ -358,15 +360,15 @@ function nextSong(){
 }
 function moveUpLocal(){ if(isRemote){ sendCommand('up'); return; } if(currentIndex>0){ const item=playlist[currentIndex], prev=playlist[currentIndex-1]; if(item && prev) swapOrdersInDB(item.key, prev.key); } }
 function moveDownLocal(){ if(isRemote){ sendCommand('down'); return; } if(currentIndex<playlist.length-1){ const item=playlist[currentIndex], next=playlist[currentIndex+1]; if(item && next) swapOrdersInDB(item.key, next.key); } }
+function clearPlaylistLocal(){ if(isRemote){ sendCommand('clear'); return; } /* removed intentionally */ }
 
-/* ========== Handle 'ended' messages from playerWindow ========== */
+/* ========== AutoPlayOnce handling from playerWindow ========== */
 window.addEventListener('message', function(e){
-  if(!e.data || !e.data.type) return;
-  if(e.data.type === 'autoPlay' && !hasAutoPlayed){
+  if(e.data && e.data.type === 'autoPlay' && !hasAutoPlayed){
     if(playlist.length > 0){
       currentIndex = 0; playSelected(); hasAutoPlayed = true;
     }
-  } else if(e.data.type === 'ended'){
+  } else if(e.data && e.data.type === 'ended'){
     // when the player reports that video ended, remove current first and auto-play next
     removeCurrentFirstAndPlayNext();
   }
