@@ -5,27 +5,27 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>THE LINKS. KTV BATAM - Remote Fixed</title>
 <style>
-  *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
-  body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;}
-  header{padding:10px 20px;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:space-between;}
-  #searchBar{display:flex;gap:10px;align-items:center;}
-  input{padding:10px;border:none;border-radius:5px;width:300px;}
-  button{background:#1db954;border:none;color:#fff;padding:10px 15px;border-radius:5px;cursor:pointer;transition:0.2s;}
-  button:hover{background:#1ed760;}
-  #container{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - 130px);}
-  #searchResults,#playlist{overflow-y:auto;padding:15px;background:rgba(255,255,255,0.05);}
-  .song{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);margin-bottom:8px;padding:8px;border-radius:6px;cursor:pointer;transition:0.2s;}
-  .song:hover{background:rgba(255,255,255,0.15);}
-  img.thumb{width:80px;border-radius:4px;}
-  .title{font-weight:bold;font-size:14px;}
-  .channel{font-size:12px;color:#ccc;}
-  #controls{display:flex;gap:10px;justify-content:center;padding:10px;background:rgba(0,0,0,0.3);}
-  #virtualKeyboard{display:none;grid-template-columns:repeat(10,1fr);gap:5px;padding:10px;background:rgba(0,0,0,0.3);position:absolute;bottom:10px;left:50%;transform:translateX(-50%);border-radius:10px;}
-  #virtualKeyboard button{background:#333;border:1px solid #444;color:#FFD700;font-weight:bold;}
-  #navButtons{display:flex;gap:5px;}
-  #qr-container{position:fixed;bottom:10px;right:10px;background:#111;padding:10px;border-radius:10px;text-align:center;z-index:9999;}
-  #qr-container p{color:#fff;font-size:12px;margin:6px 0 0;}
-  @media (max-width:600px){ input{width:160px;} img.thumb{width:64px;} }
+*{box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
+body{margin:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff;overflow:hidden;}
+header{padding:10px 20px;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:space-between;}
+#searchBar{display:flex;gap:10px;align-items:center;}
+input{padding:10px;border:none;border-radius:5px;width:300px;}
+button{background:#1db954;border:none;color:#fff;padding:10px 15px;border-radius:5px;cursor:pointer;transition:0.2s;}
+button:hover{background:#1ed760;}
+#container{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - 130px);}
+#searchResults,#playlist{overflow-y:auto;padding:15px;background:rgba(255,255,255,0.05);}
+.song{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);margin-bottom:8px;padding:8px;border-radius:6px;cursor:pointer;transition:0.2s;}
+.song:hover{background:rgba(255,255,255,0.15);}
+img.thumb{width:80px;border-radius:4px;}
+.title{font-weight:bold;font-size:14px;}
+.channel{font-size:12px;color:#ccc;}
+#controls{display:flex;gap:10px;justify-content:center;padding:10px;background:rgba(0,0,0,0.3);}
+#virtualKeyboard{display:none;grid-template-columns:repeat(10,1fr);gap:5px;padding:10px;background:rgba(0,0,0,0.3);position:absolute;bottom:10px;left:50%;transform:translateX(-50%);border-radius:10px;}
+#virtualKeyboard button{background:#333;border:1px solid #444;color:#FFD700;font-weight:bold;}
+#navButtons{display:flex;gap:5px;}
+#qr-container{position:fixed;bottom:10px;right:10px;background:#111;padding:10px;border-radius:10px;text-align:center;z-index:9999;}
+#qr-container p{color:#fff;font-size:12px;margin:6px 0 0;}
+@media (max-width:600px){ input{width:160px;} img.thumb{width:64px;} }
 </style>
 </head>
 <body>
@@ -58,251 +58,55 @@
   <div id="qrcode"></div>
   <p>Scan untuk kontrol dari HP</p>
 </div>
-
-<!-- Firebase & QR library -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
 <script>
 const isRemote = (new URLSearchParams(window.location.search).get('remote') === 'true');
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBEx2cWIr5e1vZamz65kq8cO1JQ0cUAzuQ",
-  authDomain: "karaoke-control.firebaseapp.com",
-  databaseURL: "https://karaoke-control-default-rtdb.firebaseio.com",
-  projectId: "karaoke-control",
-  storageBucket: "karaoke-control.firebasestorage.app",
-  messagingSenderId: "868744728649",
-  appId: "1:868744728649:web:500e5bec0ce4ca70f62f98",
-  measurementId: "G-PZMY40C4QX"
-};
+const firebaseConfig = {apiKey:"AIzaSyBEx2cWIr5e1vZamz65kq8cO1JQ0cUAzuQ",authDomain:"karaoke-control.firebaseapp.com",databaseURL:"https://karaoke-control-default-rtdb.firebaseio.com",projectId:"karaoke-control",storageBucket:"karaoke-control.firebasestorage.app",messagingSenderId:"868744728649",appId:"1:868744728649:web:500e5bec0ce4ca70f62f98",measurementId:"G-PZMY40C4QX"};
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
 const API_KEY = "AIzaSyDRqyB5XtgdHTtDVbhuIR5cL6OqDTZlFgE";
-
-let playlist = [];
-let currentIndex = 0;
-let playerWindow = null;
-let selectedSearchIndex = -1;
-
-function showNotif(text){
-  let n = document.getElementById('_notif_box_');
-  if(!n){
-    n = document.createElement('div');
-    n.id = '_notif_box_';
-    n.style.position = 'fixed';
-    n.style.bottom = '10px';
-    n.style.left = '10px';
-    n.style.background = 'rgba(0,0,0,0.6)';
-    n.style.color = '#fff';
-    n.style.padding = '8px 12px';
-    n.style.borderRadius = '8px';
-    n.style.zIndex = 99999;
-    document.body.appendChild(n);
-  }
-  n.textContent = text;
-  n.style.display = 'block';
-  clearTimeout(n._t);
-  n._t = setTimeout(()=> n.style.display='none', 1600);
-}
-
-function sendCmd(action, payload = null){
-  db.ref('commands').push({ action, payload, ts: Date.now() });
-}
-
-if(!isRemote){
-  db.ref('commands').on('child_added', snapshot => {
-    const cmd = snapshot.val();
-    const key = snapshot.key;
-    if(!cmd || !cmd.action){
-      if(key) snapshot.ref.remove().catch(()=>{});
-      return;
-    }
-
-    switch(cmd.action){
-      case 'play': if(!playerWindow || playerWindow.closed) openPlayer(); setTimeout(()=> playSelected(),300); break;
-      case 'pause': pauseVideo(); break;
-      case 'next': nextSong(); break;
-      case 'up': moveUpLocal(); break;
-      case 'down': moveDownLocal(); break;
-      case 'clear': clearPlaylistLocal(); break;
-      case 'add':
-        if(cmd.payload && cmd.payload.id){
-          playlist.push({
-            id: cmd.payload.id,
-            title: cmd.payload.title || 'Unknown',
-            channel: cmd.payload.channel || '',
-            thumb: cmd.payload.thumb || ''
-          });
-          renderPlaylist();
-          showNotif('Added from remote');
-          if(playlist.length === 1){ currentIndex = 0; setTimeout(()=> playSelected(), 300); }
-        }
-        break;
-    }
-    if(key) snapshot.ref.remove().catch(()=>{});
-  });
-}
-
-const CONTROL_URL = 'https://supiyantoian-gif.github.io/index.html/?remote=true';
-window.addEventListener('load', ()=>{
-  if(!isRemote){
-    const qrBox = document.getElementById('qr-container');
-    qrBox.style.display = 'block';
-    try {
-      new QRCode(document.getElementById('qrcode'), { text: CONTROL_URL, width:120, height:120, colorDark:'#00ffcc', colorLight:'#111', correctLevel: QRCode.CorrectLevel.H });
-    } catch(e){}
-  } else {
-    document.getElementById('qr-container').style.display = 'none';
-    showNotif('REMOTE MODE — kontrol desktop dari sini');
-  }
-});
-
-function createVirtualKeyboard(){
-  const vk = document.getElementById('virtualKeyboard');
-  vk.innerHTML = '';
-  const keys = ['Q','W','E','R','T','Y','U','I','O','P','A','S','D','F','G','H','J','K','L','Z','X','C','V','B','N','M','←','⏎','␣'];
-  keys.forEach(k=>{
-    const b = document.createElement('button'); b.textContent = k; b.onclick = ()=> virtualKeyPress(k);
-    vk.appendChild(b);
-  });
-}
-function virtualKeyPress(k){
-  const input = document.getElementById('searchInput');
-  if(!input) return;
-  if(k==='←') input.value = input.value.slice(0,-1);
-  else if(k==='⏎') doSearch();
-  else if(k==='␣') input.value += ' ';
-  else input.value += k;
-}
-
-async function doSearch(){
-  const q = document.getElementById('searchInput').value.trim();
-  const resultsEl = document.getElementById('searchResults');
-  if(!q){ resultsEl.innerHTML = '<i>Masukkan kata kunci...</i>'; return; }
-  resultsEl.innerHTML = '<i>Mencari...</i>';
-  const searchQuery = q.toLowerCase().includes('karaoke') ? q : q + ' karaoke';
-  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(searchQuery)}&key=${API_KEY}`;
-  try {
-    const resp = await fetch(url);
-    const data = await resp.json();
-    resultsEl.innerHTML = '';
-    selectedSearchIndex = -1;
-    const items = data.items || [];
-    items.forEach(item=>{
-      const thumb = (item.snippet && item.snippet.thumbnails && item.snippet.thumbnails.medium && item.snippet.thumbnails.medium.url) ? item.snippet.thumbnails.medium.url : '';
-      const div = document.createElement('div');
-      div.className = 'song';
-      div.onclick = ()=> addToPlaylist(item);
-      div.innerHTML = `<img class="thumb" src="${thumb}"><div><div class="title">${item.snippet.title}</div><div class="channel">${item.snippet.channelTitle}</div></div>`;
-      resultsEl.appendChild(div);
-    });
-  } catch(e){
-    resultsEl.innerHTML = '<i>Gagal konek ke YouTube API</i>';
-  }
-}
-
-function addToPlaylist(item){
-  let payload = null;
-  if(item && item.id && item.id.videoId){
-    payload = { id: item.id.videoId, title: item.snippet.title, channel: item.snippet.channelTitle, thumb: (item.snippet && item.snippet.thumbnails && item.snippet.thumbnails.medium && item.snippet.thumbnails.medium.url) ? item.snippet.thumbnails.medium.url : '' };
-  } else if(item && item.id){
-    payload = item;
-  } else return;
-  if(isRemote){
-    sendCmd('add', payload);
-    showNotif('Mengirim lagu ke desktop...');
-    return;
-  }
-  playlist.push(payload);
-  renderPlaylist();
-  if(playlist.length === 1){ currentIndex = 0; playSelected(); }
-}
-
-function renderPlaylist(){
-  const el = document.getElementById('playlist');
-  el.innerHTML = '';
-  playlist.forEach((s,i)=>{
-    const div = document.createElement('div');
-    div.className = 'song';
-    div.innerHTML = `<img class="thumb" src="${s.thumb || ''}"><div><div class="title">${i+1}. ${s.title}</div><div class="channel">${s.channel}</div></div>`;
-    div.onclick = ()=> { currentIndex = i; if(!isRemote) playSelected(); };
-    el.appendChild(div);
-  });
-}
-
-function moveUpLocal(){ if(currentIndex>0){ [playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]]; currentIndex--; renderPlaylist(); } }
-function moveDownLocal(){ if(currentIndex<playlist.length-1){ [playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]]; currentIndex++; renderPlaylist(); } }
-function clearPlaylistLocal(){ playlist=[]; currentIndex=0; renderPlaylist(); }
-
-function openPlayer(){
-  if(isRemote) return;
-  if(!playerWindow || playerWindow.closed){
-    playerWindow = window.open('','playerWindow','width=900,height=600');
-    playerWindow.document.write(
-      '<!doctype html><html><head><meta charset="utf-8"><title>Player</title></head><body style="margin:0;background:black;overflow:hidden;"><div id="player"></div>' +
-      '<script>let player;function onYouTubeIframeAPIReady(){player=new YT.Player("player",{width:"100%",height:"100%",videoId:"",playerVars:{autoplay:1,controls:0},events:{onReady:function(){try{window.opener.postMessage("ready","*");}catch(e){}},onStateChange:function(e){if(e.data===YT.PlayerState.ENDED){try{window.opener.postMessage("songEnded","*");}catch(e){}}}}});}window.addEventListener("message",function(e){try{if(e.data && e.data.type==="play" && player)player.loadVideoById(e.data.id);if(e.data && e.data.type==="pause" && player)player.pauseVideo();}catch(err){}});<\/script><script src="https://www.youtube.com/iframe_api"><\/script></body></html>'
-    );
-  }
-}
-
-function playSelected(){
-  if(isRemote){ sendCmd('play'); return; }
-  if(!playlist.length) return;
-  if(!playerWindow || playerWindow.closed) openPlayer();
-  const s = playlist[currentIndex];
-  setTimeout(()=> {
-    try { playerWindow.postMessage({ type: 'play', id: s.id }, '*'); }
-    catch(e){}
-  }, 700);
-}
-
-function pauseVideo(){ if(isRemote){ sendCmd('pause'); return; } try{ playerWindow?.postMessage({ type: 'pause' }, '*'); } catch(e){} }
-function nextSong(){ if(isRemote){ sendCmd('next'); return; } if(currentIndex < playlist.length - 1){ currentIndex++; playSelected(); } }
-function moveUp(){ if(isRemote){ sendCmd('up'); return; } moveUpLocal(); }
-function moveDown(){ if(isRemote){ sendCmd('down'); return; } moveDownLocal(); }
-function clearPlaylist(){ if(isRemote){ sendCmd('clear'); return; } clearPlaylistLocal(); }
-
-function highlightSearchResult(){ const items=document.querySelectorAll('#searchResults .song'); items.forEach((div,i)=> div.style.background = i===selectedSearchIndex ? 'rgba(29,185,84,0.4)' : 'rgba(255,255,255,0.05)'); }
-function moveSearchUp(){ const items=document.querySelectorAll('#searchResults .song'); if(items.length===0) return; selectedSearchIndex = selectedSearchIndex<=0 ? items.length-1 : selectedSearchIndex-1; highlightSearchResult(); }
-function moveSearchDown(){ const items=document.querySelectorAll('#searchResults .song'); if(items.length===0) return; selectedSearchIndex = selectedSearchIndex>=items.length-1 ? 0 : selectedSearchIndex+1; highlightSearchResult(); }
-function addSelectedSearchToPlaylist(){ const items=document.querySelectorAll('#searchResults .song'); if(selectedSearchIndex>=0 && selectedSearchIndex<items.length) items[selectedSearchIndex].click(); }
-
-function autoNext(){
-  if(currentIndex < playlist.length - 1){
-    currentIndex++;
-    playSelected();
-  } else {
-    console.log("✅ Playlist selesai.");
-  }
-}
-
-window.addEventListener("message", (e) => {
-  if(e.data === "songEnded"){
-    autoNext();
-  }
-});
-
+let playlist = [],currentIndex = 0,playerWindow = null,selectedSearchIndex = -1;
+function showNotif(text){let n=document.getElementById('_notif_box_');if(!n){n=document.createElement('div');n.id='_notif_box_';n.style.position='fixed';n.style.bottom='10px';n.style.left='10px';n.style.background='rgba(0,0,0,0.6)';n.style.color='#fff';n.style.padding='8px 12px';n.style.borderRadius='8px';n.style.zIndex=99999;document.body.appendChild(n);}n.textContent=text;n.style.display='block';clearTimeout(n._t);n._t=setTimeout(()=>n.style.display='none',1600);}
+function sendCmd(action,payload=null){db.ref('commands').push({action,payload,ts:Date.now()});}
+if(!isRemote){db.ref('commands').on('child_added',snapshot=>{const cmd=snapshot.val();const key=snapshot.key;if(!cmd||!cmd.action){if(key)snapshot.ref.remove().catch(()=>{});return;}switch(cmd.action){case 'play':if(!playerWindow||playerWindow.closed)openPlayer();setTimeout(()=>playSelected(),300);break;case 'pause':pauseVideo();break;case 'next':nextSong();break;case 'up':moveUpLocal();break;case 'down':moveDownLocal();break;case 'clear':clearPlaylistLocal();break;case 'add':if(cmd.payload&&cmd.payload.id){playlist.push({id:cmd.payload.id,title:cmd.payload.title||'Unknown',channel:cmd.payload.channel||'',thumb:cmd.payload.thumb||''});renderPlaylist();showNotif('Added from remote');if(playlist.length===1){currentIndex=0;openPlayer();setTimeout(()=>playSelected(),500);}}break;}if(key)snapshot.ref.remove().catch(()=>{});});}
+const CONTROL_URL='https://supiyantoian-gif.github.io/index.html/?remote=true';
+window.addEventListener('load',()=>{if(!isRemote){document.getElementById('qr-container').style.display='block';try{new QRCode(document.getElementById('qrcode'),{text:CONTROL_URL,width:120,height:120,colorDark:'#00ffcc',colorLight:'#111',correctLevel:QRCode.CorrectLevel.H});}catch(e){console.error(e);}}else{document.getElementById('qr-container').style.display='none';showNotif('REMOTE MODE — kontrol desktop dari sini');}});
+function createVirtualKeyboard(){const vk=document.getElementById('virtualKeyboard');vk.innerHTML='';['Q','W','E','R','T','Y','U','I','O','P','A','S','D','F','G','H','J','K','L','Z','X','C','V','B','N','M','←','⏎','␣'].forEach(k=>{let b=document.createElement('button');b.textContent=k;b.onclick=()=>virtualKeyPress(k);vk.appendChild(b);});}
+function virtualKeyPress(k){const input=document.getElementById('searchInput');if(!input)return;if(k==='←')input.value=input.value.slice(0,-1);else if(k==='⏎')doSearch();else if(k==='␣')input.value+=' ';else input.value+=k;}
+async function doSearch(){const q=document.getElementById('searchInput').value.trim();const resultsEl=document.getElementById('searchResults');if(!q){resultsEl.innerHTML='<i>Masukkan kata kunci...</i>';return;}resultsEl.innerHTML='<i>Mencari...</i>';const searchQuery=q.toLowerCase().includes('karaoke')?q:q+' karaoke';const url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(searchQuery)}&key=${API_KEY}`;try{const resp=await fetch(url);const data=await resp.json();resultsEl.innerHTML='';selectedSearchIndex=-1;(data.items||[]).forEach(item=>{const thumb=(item.snippet&&item.snippet.thumbnails&&item.snippet.thumbnails.medium&&item.snippet.thumbnails.medium.url)?item.snippet.thumbnails.medium.url:'';let div=document.createElement('div');div.className='song';div.onclick=()=>addToPlaylist(item);div.innerHTML=`<img class="thumb" src="${thumb}"><div><div class="title">${item.snippet.title}</div><div class="channel">${item.snippet.channelTitle}</div></div>`;resultsEl.appendChild(div);});}catch(e){console.error(e);resultsEl.innerHTML='<i>Gagal konek ke YouTube API</i>';}}
+function addToPlaylist(item){let payload=null;if(item&&item.id&&item.id.videoId){payload={id:item.id.videoId,title:item.snippet.title,channel:item.snippet.channelTitle,thumb:(item.snippet&&item.snippet.thumbnails&&item.snippet.thumbnails.medium&&item.snippet.thumbnails.medium.url)?item.snippet.thumbnails.medium.url:''};}else if(item&&item.id){payload=item;}else return;if(isRemote){sendCmd('add',payload);showNotif('Mengirim lagu ke desktop...');return;}playlist.push(payload);renderPlaylist();if(playlist.length===1){currentIndex=0;openPlayer();setTimeout(()=>playSelected(),500);}}
+function renderPlaylist(){const el=document.getElementById('playlist');el.innerHTML='';playlist.forEach((s,i)=>{let div=document.createElement('div');div.className='song';div.innerHTML=`<img class="thumb" src="${s.thumb||''}"><div><div class="title">${i+1}. ${s.title}</div><div class="channel">${s.channel}</div></div>`;div.onclick=()=>{currentIndex=i;playSelected();};el.appendChild(div);});}
+function moveUpLocal(){if(currentIndex>0){[playlist[currentIndex-1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex-1]];currentIndex--;renderPlaylist();}}
+function moveDownLocal(){if(currentIndex<playlist.length-1){[playlist[currentIndex+1],playlist[currentIndex]]=[playlist[currentIndex],playlist[currentIndex+1]];currentIndex++;renderPlaylist();}}
+function clearPlaylistLocal(){playlist=[];currentIndex=0;renderPlaylist();}
+function openPlayer(){if(isRemote)return;if(!playerWindow||playerWindow.closed){playerWindow=window.open('','playerWindow','width=900,height=600');playerWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Player</title></head><body style="margin:0;background:black;overflow:hidden;"><div id="player"></div><script>let player;window.addEventListener("message",function(e){try{if(e.data&&e.data.type==="play"&&player)player.loadVideoById(e.data.id);if(e.data&&e.data.type==="pause"&&player)player.pauseVideo();}catch(err){}});function onYouTubeIframeAPIReady(){player=new YT.Player("player",{width:"100%",height:"100%",videoId:"",playerVars:{autoplay:1,controls:0},events:{onReady:function(){try{window.opener.postMessage("ready","*");}catch(e){}}}});}</script><script src="https://www.youtube.com/iframe_api"></script></body></html>');}}
+function playSelected(){if(isRemote){sendCmd('play');return;}if(!playlist.length)return;if(!playerWindow||playerWindow.closed)openPlayer();const s=playlist[currentIndex];setTimeout(()=>{try{playerWindow.postMessage({type:'play',id:s.id},'*');}catch(e){console.error(e);}},700);}
+function pauseVideo(){if(isRemote){sendCmd('pause');return;}try{playerWindow?.postMessage({type:'pause'},'*');}catch(e){}}
+function nextSong(){if(isRemote){sendCmd('next');return;}if(currentIndex<playlist.length-1){currentIndex++;playSelected();}}
+function moveUp(){if(isRemote){sendCmd('up');return;}moveUpLocal();}
+function moveDown(){if(isRemote){sendCmd('down');return;}moveDownLocal();}
+function clearPlaylist(){if(isRemote){sendCmd('clear');return;}clearPlaylistLocal();}
+document.getElementById('searchBtn').onclick=doSearch;
+document.getElementById('openPlayerBtn').onclick=openPlayer;
+document.getElementById('playBtn').onclick=playSelected;
+document.getElementById('pauseBtn').onclick=pauseVideo;
+document.getElementById('nextBtn').onclick=nextSong;
+document.getElementById('moveUpBtn').onclick=moveUp;
+document.getElementById('moveDownBtn').onclick=moveDown;
+document.getElementById('clearBtn').onclick=clearPlaylist;
+document.getElementById('upBtn').onclick=moveSearchUp;
+document.getElementById('downBtn').onclick=moveSearchDown;
+function highlightSearchResult(){document.querySelectorAll('#searchResults .song').forEach((div,i)=>div.style.background=i===selectedSearchIndex?'rgba(29,185,84,0.4)':'rgba(255,255,255,0.05)');}
+function moveSearchUp(){const items=document.querySelectorAll('#searchResults .song');if(items.length===0)return;selectedSearchIndex=selectedSearchIndex<=0?items.length-1:selectedSearchIndex-1;highlightSearchResult();}
+function moveSearchDown(){const items=document.querySelectorAll('#searchResults .song');if(items.length===0)return;selectedSearchIndex=selectedSearchIndex>=items.length-1?0:selectedSearchIndex+1;highlightSearchResult();}
 createVirtualKeyboard();
-const searchInput = document.getElementById('searchInput');
-const vk = document.getElementById('virtualKeyboard');
-searchInput.addEventListener('focus', ()=> vk.style.display = 'grid');
-document.addEventListener('click', e => { if(!vk.contains(e.target) && e.target !== searchInput) vk.style.display = 'none'; });
-
-document.getElementById('searchBtn').onclick = doSearch;
-document.getElementById('openPlayerBtn').onclick = openPlayer;
-document.getElementById('playBtn').onclick = playSelected;
-document.getElementById('pauseBtn').onclick = pauseVideo;
-document.getElementById('nextBtn').onclick = nextSong;
-document.getElementById('moveUpBtn').onclick = moveUp;
-document.getElementById('moveDownBtn').onclick = moveDown;
-document.getElementById('clearBtn').onclick = clearPlaylist;
-document.getElementById('upBtn').onclick = moveSearchUp;
-document.getElementById('downBtn').onclick = moveSearchDown;
-
-if(isRemote){ try{ document.getElementById('openPlayerBtn').style.display = 'none'; }catch(e){} }
+const searchInput=document.getElementById('searchInput');
+const vk=document.getElementById('virtualKeyboard');
+searchInput.addEventListener('focus',()=>vk.style.display='grid');
+document.addEventListener('click',e=>{if(!vk.contains(e.target)&&e.target!==searchInput)vk.style.display='none';});
+if(isRemote){try{document.getElementById('openPlayerBtn').style.display='none';}catch(e){}}
 </script>
 </body>
 </html>
