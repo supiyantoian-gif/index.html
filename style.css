@@ -1,1 +1,17 @@
-style.css 
+style.css /* Nonaktifkan klik/touch pada item playlist */
+.playlist-no-click .song {
+  pointer-events: none; /* blok semua klik/touch pada item */
+  opacity: 0.98; /* tetap terlihat normal */
+}
+
+/* Pastikan kontrol kecil tetap dapat dipakai */
+.playlist-no-click .song .small-ctrl,
+.playlist-no-click .song .small-ctrl * {
+  pointer-events: auto; /* tombol up/down/delete tetap aktif */
+}
+
+/* Buat jelas bagi pembaca layar bahwa item dinonaktifkan */
+.playlist-no-click .song[aria-disabled="true"] .title,
+.playlist-no-click .song[aria-disabled="true"] .channel {
+  opacity: 0.9;
+}
